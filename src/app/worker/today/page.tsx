@@ -39,10 +39,28 @@ export default async function WorkerToday() {
     .filter((p) => p.status === 'pending_review')
     .reduce((sum, p) => sum + p.amount, 0);
 
-  // Fetch all open tasks
-  const openTasks = await prisma.task.findMany({
+  // Fetch all open paid tasks (no funding-needed / coming-soon)
+  const allPaidTasks = await prisma.task.findMany({
     where: { status: 'open', isComingSoon: false, isFundingNeeded: false },
+    orderBy: { payoutAmount: 'desc' },
   });
+
+  // Jordan (Arts District) simulates a worker with no paid tasks on their block.
+  const paidTasks = userId === 'worker-notasks-id' ? [] : allPaidTasks;
+  const topPayout = paidTasks.length > 0 ? paidTasks[0].payoutAmount : 0;
+
+  // Reports waiting to be verified / turned into work nearby
+  const pendingReportCount = await prisma.report.count({
+    where: { status: 'pending' },
+  });
+
+  // Tasks that exist but aren't claimable paid work yet (funding needed / coming soon)
+  const upcomingCareCount = await prisma.task.count({
+    where: { status: 'open', OR: [{ isComingSoon: true }, { isFundingNeeded: true }] },
+  });
+
+  // One honest "things need care near you" number for the greeting
+  const careCount = paidTasks.length + pendingReportCount + upcomingCareCount;
 
   // Fetch campaign progress
   const campaign = await prisma.campaign.findUnique({
@@ -52,7 +70,7 @@ export default async function WorkerToday() {
   // Determine User State & Primary Card Details
   let primaryCard = {
     title: 'Earn nearby',
-    desc: `${openTasks.length} paid tasks within 1 mile.`,
+    desc: `${paidTasks.length} paid task${paidTasks.length === 1 ? '' : 's'} within 1 mile. Top payout $${topPayout.toFixed(0)}.`,
     buttonText: 'View paid tasks',
     link: '/worker/map',
     style: 'bg-[#1b4332] text-white border-[#1b4332]',
@@ -117,7 +135,8 @@ export default async function WorkerToday() {
         <div className="flex justify-between items-start">
           <div>
             <h1 className="text-xl font-bold font-heading">Good morning, {worker?.name || 'Austin'}.</h1>
-            <p className="text-xs text-emerald-200 mt-0.5">Downtown Los Angeles Pilot</p>
+            <p className="text-sm font-semibold text-emerald-100 mt-1">{careCount} things need care near you.</p>
+            <p className="text-[10px] text-emerald-300/80 mt-0.5">Downtown Los Angeles Pilot</p>
           </div>
           <div className="bg-emerald-800/50 border border-emerald-500/20 px-3 py-1 rounded-full text-[10px] flex items-center gap-1 font-bold text-emerald-100">
             <Award size={10} className="text-emerald-300" />
@@ -159,30 +178,109 @@ export default async function WorkerToday() {
           </Link>
         </div>
 
-        {/* Quest stack */}
+        {/* Action cards */}
         <div className="flex flex-col gap-3">
           <h3 className="text-xs font-bold uppercase tracking-wider text-muted font-heading flex items-center gap-1">
             <Flame size={12} className="text-[#2d6a4f]" />
             Today near you
           </h3>
-          <div className="bg-[#faf9f5] border border-border rounded-2xl p-4 flex flex-col gap-3.5 text-xs font-semibold text-[#555]">
-            <Link href="/worker/report" className="flex items-center justify-between border-b border-border/40 pb-2.5 hover:text-black">
-              <span>1. Report one issue on your block</span>
-              <span className="text-[#2d6a4f]">Earn up to $3</span>
+
+          {/* Paid tasks near you — with empty-state alternative */}
+          {paidTasks.length > 0 ? (
+            <Link
+              href="/worker/map"
+              className="bg-[#faf9f5] border border-border rounded-2xl p-4 flex items-center gap-3.5 hover:border-[#2d6a4f]/40 transition-colors group"
+            >
+              <div className="w-10 h-10 rounded-xl bg-emerald-100 flex items-center justify-center shrink-0">
+                <MapPin size={18} className="text-[#1b4332]" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="text-sm font-bold text-foreground font-heading">Paid tasks near you</div>
+                <p className="text-[11px] text-[#555] mt-0.5">
+                  {paidTasks.length} paid task{paidTasks.length === 1 ? '' : 's'} nearby. Top payout ${topPayout.toFixed(0)}.
+                </p>
+              </div>
+              <ArrowRight size={16} className="text-muted group-hover:text-[#1b4332] shrink-0" />
             </Link>
-            <Link href="/worker/training" className="flex items-center justify-between border-b border-border/40 pb-2.5 hover:text-black">
-              <span>2. Finish safety training</span>
-              <span className="text-primary">Unlock tasks</span>
+          ) : (
+            <div className="bg-[#faf9f5] border border-border rounded-2xl p-4 flex flex-col gap-3">
+              <div className="flex items-center gap-3.5">
+                <div className="w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center shrink-0">
+                  <MapPin size={18} className="text-slate-500" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="text-sm font-bold text-foreground font-heading">Paid tasks near you</div>
+                  <p className="text-[11px] text-[#555] mt-0.5 leading-relaxed">
+                    No paid tasks nearby right now. You can still help get this area ready.
+                  </p>
+                </div>
+              </div>
+              <div className="flex gap-2">
+                <Link href="/worker/report" className="flex-1 text-center bg-[#1b4332] text-white text-[11px] font-bold py-2.5 rounded-xl hover:bg-emerald-950 transition-colors">
+                  Report something
+                </Link>
+                <Link href="/worker/map" className="flex-1 text-center bg-white border border-border text-foreground text-[11px] font-bold py-2.5 rounded-xl hover:border-[#2d6a4f]/40 transition-colors">
+                  Verify a report
+                </Link>
+              </div>
+            </div>
+          )}
+
+          {/* Report something */}
+          <Link
+            href="/worker/report"
+            className="bg-[#faf9f5] border border-border rounded-2xl p-4 flex items-center gap-3.5 hover:border-[#2d6a4f]/40 transition-colors group"
+          >
+            <div className="w-10 h-10 rounded-xl bg-amber-100 flex items-center justify-center shrink-0">
+              <AlertCircle size={18} className="text-amber-700" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="text-sm font-bold text-foreground font-heading">Report something</div>
+              <p className="text-[11px] text-[#555] mt-0.5">Report something dirty, broken, or unsafe.</p>
+            </div>
+            <span className="text-[11px] font-bold text-[#2d6a4f] shrink-0">Up to $3</span>
+          </Link>
+
+          {/* Verify a nearby report */}
+          <Link
+            href="/worker/map"
+            className="bg-[#faf9f5] border border-border rounded-2xl p-4 flex items-center gap-3.5 hover:border-[#2d6a4f]/40 transition-colors group"
+          >
+            <div className="w-10 h-10 rounded-xl bg-sky-100 flex items-center justify-center shrink-0">
+              <HelpCircle size={18} className="text-sky-700" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="text-sm font-bold text-foreground font-heading">Verify a nearby report</div>
+              <p className="text-[11px] text-[#555] mt-0.5">
+                {pendingReportCount > 0
+                  ? `${pendingReportCount} report${pendingReportCount === 1 ? '' : 's'} need a quick check.`
+                  : 'Check if a reported issue still exists.'}
+              </p>
+            </div>
+            <span className="text-[11px] font-bold text-[#2d6a4f] shrink-0">$2–3</span>
+          </Link>
+
+          {/* Finish safety training — prominent if incomplete, confirmation if done */}
+          {worker && !worker.onboardingCompleted ? (
+            <Link
+              href="/worker/training"
+              className="bg-[#faf9f5] border border-border rounded-2xl p-4 flex items-center gap-3.5 hover:border-[#2d6a4f]/40 transition-colors group"
+            >
+              <div className="w-10 h-10 rounded-xl bg-emerald-100 flex items-center justify-center shrink-0">
+                <ShieldCheck size={18} className="text-[#1b4332]" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="text-sm font-bold text-foreground font-heading">Finish safety training</div>
+                <p className="text-[11px] text-[#555] mt-0.5">Finish Safety Basics to unlock more tasks.</p>
+              </div>
+              <span className="text-[11px] font-bold text-primary shrink-0">Unlock</span>
             </Link>
-            <Link href="/worker/map" className="flex items-center justify-between border-b border-border/40 pb-2.5 hover:text-black">
-              <span>3. Check if planter on Main needs water</span>
-              <span className="text-[#2d6a4f]">Earn $2</span>
-            </Link>
-            <Link href="/worker/map" className="flex items-center justify-between hover:text-black">
-              <span>4. Join Saturday corridor team route</span>
-              <span className="text-[#2d6a4f]">Estimated $45</span>
-            </Link>
-          </div>
+          ) : (
+            <div className="flex items-center gap-2 px-1 text-[11px] font-semibold text-[#2d6a4f]">
+              <ShieldCheck size={14} />
+              Safety Basics complete. You&apos;re cleared for nearby tasks.
+            </div>
+          )}
         </div>
 
         {/* Campaign progress */}
