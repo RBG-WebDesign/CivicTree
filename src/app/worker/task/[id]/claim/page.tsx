@@ -1,26 +1,23 @@
 // src/app/worker/task/[id]/claim/page.tsx
 'use client';
 
-import { useState, useEffect, use } from 'react';
+import { useState, use } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { CheckCircle, ShieldAlert, ArrowLeft, Landmark, Check } from 'lucide-react';
-
-interface Task {
-  id: string;
-  title: string;
-  payoutAmount: number;
-  requiredTools: string;
-}
+import { CheckCircle, ShieldAlert, ArrowLeft, Landmark, XCircle } from 'lucide-react';
+import { useDemoStore } from '@/lib/demo/store';
+import { useHydrated } from '@/lib/demo/hooks';
+import { useToast } from '@/components/demo/Toast';
 
 export default function ClaimTaskChecklist({ params }: { params: Promise<{ id: string }> }) {
   const router = useRouter();
   const { id: taskId } = use(params);
-  const [task, setTask] = useState<Task | null>(null);
-  const [userId, setUserId] = useState('worker-austin-id');
-  const [loading, setLoading] = useState(true);
-  const [claiming, setClaiming] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const { notify } = useToast();
+
+  const tasks = useDemoStore((s) => s.tasks);
+  const claimTask = useDemoStore((s) => s.claimTask);
+  const workerId = useDemoStore((s) => s.activePersona.userId);
+  const hydrated = useHydrated();
 
   // Checklist states
   const [checkedGloves, setCheckedGloves] = useState(false);
@@ -28,64 +25,9 @@ export default function ClaimTaskChecklist({ params }: { params: Promise<{ id: s
   const [checkedShoes, setCheckedShoes] = useState(false);
   const [checkedBattery, setCheckedBattery] = useState(false);
   const [checkedSafety, setCheckedSafety] = useState(false);
+  const [claiming, setClaiming] = useState(false);
 
-  useEffect(() => {
-    const cookies = document.cookie.split('; ');
-    const userCookie = cookies.find((row) => row.startsWith('civictree_user_id='));
-    if (userCookie) {
-      setUserId(userCookie.split('=')[1]);
-    }
-
-    async function fetchTask() {
-      try {
-        const res = await fetch(`/api/tasks`);
-        if (!res.ok) throw new Error('Failed to fetch tasks');
-        const tasks: Task[] = await res.json();
-        const found = tasks.find((t) => t.id === taskId);
-        if (!found) {
-          setError('Task not found');
-        } else {
-          setTask(found);
-        }
-      } catch (err) {
-        setError('Failed to load task details');
-      } finally {
-        setLoading(false);
-      }
-    }
-    fetchTask();
-  }, [taskId]);
-
-  const handleClaim = async () => {
-    if (!task) return;
-    setClaiming(true);
-    setError(null);
-
-    try {
-      const res = await fetch(`/api/tasks/${task.id}/claim`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          workerId: userId,
-        }),
-      });
-
-      if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.error || 'Failed to claim task');
-      }
-
-      // Success, route to the active workspace page
-      router.push(`/worker/task/${task.id}/active`);
-    } catch (err: any) {
-      setError(err.message || 'Something went wrong');
-      setClaiming(false);
-    }
-  };
-
-  if (loading) {
+  if (!hydrated) {
     return (
       <div className="flex-1 flex flex-col items-center justify-center p-6 max-w-md mx-auto bg-white min-h-screen border-x border-border">
         <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin"></div>
@@ -94,16 +36,46 @@ export default function ClaimTaskChecklist({ params }: { params: Promise<{ id: s
     );
   }
 
-  if (error || !task) {
+  const task = tasks.find((t) => t.id === taskId);
+
+  if (!task) {
     return (
       <div className="flex-1 flex flex-col items-center justify-center p-6 max-w-md mx-auto bg-white min-h-screen border-x border-border text-center">
-        <h2 className="text-sm font-bold text-foreground">Error loading task</h2>
-        <Link href="/worker/today" className="mt-4 text-xs font-bold text-primary">Go back Today</Link>
+        <XCircle size={40} className="text-destructive mb-3" />
+        <h2 className="text-sm font-bold text-foreground">Task not found</h2>
+        <Link href="/worker/map" className="mt-4 text-xs font-bold text-primary inline-flex items-center gap-1">
+          <ArrowLeft size={14} />
+          Back to map
+        </Link>
+      </div>
+    );
+  }
+
+  if (task.status !== 'open') {
+    return (
+      <div className="flex-1 flex flex-col items-center justify-center p-6 max-w-md mx-auto bg-white min-h-screen border-x border-border text-center">
+        <XCircle size={40} className="text-destructive mb-3" />
+        <h2 className="text-sm font-bold text-foreground">Task no longer available</h2>
+        <p className="text-xs text-muted mt-2">This task is no longer available for claiming.</p>
+        <Link href="/worker/map" className="mt-4 text-xs font-bold text-primary inline-flex items-center gap-1">
+          <ArrowLeft size={14} />
+          Back to map
+        </Link>
       </div>
     );
   }
 
   const allChecked = checkedGloves && checkedBags && checkedShoes && checkedBattery && checkedSafety;
+
+  const handleClaim = () => {
+    if (!allChecked || claiming) return;
+    setClaiming(true);
+    claimTask(taskId, workerId);
+    notify('Task claimed. Head to the work area.', 'success');
+    router.push(`/worker/task/${taskId}/active`);
+  };
+
+  const toolsDisplay = task.requiredTools.filter((t) => t.toLowerCase() !== 'none').join(', ');
 
   return (
     <div className="flex-1 flex flex-col max-w-md mx-auto bg-[#faf9f5] min-h-screen border-x border-border shadow-sm pb-8">
@@ -126,13 +98,13 @@ export default function ClaimTaskChecklist({ params }: { params: Promise<{ id: s
         </div>
 
         {/* Supplies Alert if needed */}
-        {task.requiredTools && !task.requiredTools.toLowerCase().includes('none') && (
+        {toolsDisplay && (
           <div className="bg-white border border-border p-5 rounded-3xl shadow-sm flex flex-col gap-3">
             <span className="text-[10px] font-bold text-[#888] uppercase tracking-wider">Supplies needed</span>
             <div className="bg-orange-50 border border-orange-200 text-orange-950 p-4 rounded-xl text-xs font-bold flex flex-col gap-1">
               <span>Pick up your kit first.</span>
               <p className="text-[11px] font-semibold text-orange-900 leading-normal mt-0.5">
-                This task requires tools: {task.requiredTools}.
+                This task requires tools: {toolsDisplay}.
               </p>
             </div>
 
@@ -142,9 +114,9 @@ export default function ClaimTaskChecklist({ params }: { params: Promise<{ id: s
                 <span className="font-bold text-foreground">Spring Street Depot</span>
                 <span className="text-[10px] text-muted">0.3 miles away &bull; Open until 5 PM</span>
               </div>
-              <button 
-                type="button" 
-                onClick={() => alert('Routing to Spring Street Depot...')}
+              <button
+                type="button"
+                onClick={() => notify('Routing to Spring Street Depot...', 'info')}
                 className="text-primary hover:underline font-bold text-[11px]"
               >
                 Route me
@@ -212,8 +184,6 @@ export default function ClaimTaskChecklist({ params }: { params: Promise<{ id: s
           </div>
         </div>
 
-        {error && <div className="text-xs text-destructive font-bold">{error}</div>}
-
         {/* Claim Buttons */}
         <div className="flex flex-col gap-3">
           <button
@@ -223,7 +193,7 @@ export default function ClaimTaskChecklist({ params }: { params: Promise<{ id: s
           >
             {claiming ? 'Checking in...' : "I'm ready"}
           </button>
-          
+
           <Link
             href={`/worker/task/${task.id}`}
             className="text-xs font-bold text-center text-muted hover:text-foreground transition-all py-2"
