@@ -1,8 +1,9 @@
 // src/components/RoleSwitcher.tsx
 'use client';
 
+import Link from 'next/link';
 import { useEffect, useState } from 'react';
-import { Shield, User as UserIcon } from 'lucide-react';
+import { Shield, User as UserIcon, Layers, MapPin } from 'lucide-react';
 
 export default function RoleSwitcher() {
   const [role, setRole] = useState<string>('worker');
@@ -38,7 +39,16 @@ export default function RoleSwitcher() {
       </div>
       
       <div className="flex items-center gap-3">
-        <span className="text-emerald-200">Active Persona:</span>
+        <Link href="/dashboard" className="flex items-center gap-1 text-emerald-300 hover:text-white transition-colors font-semibold">
+          <Layers size={12} />
+          Command Center
+        </Link>
+        <Link href="/worker/today" className="flex items-center gap-1 text-emerald-300 hover:text-white transition-colors font-semibold">
+          <MapPin size={12} />
+          Worker App
+        </Link>
+        <div className="w-px h-3 bg-emerald-700" />
+        <span className="text-emerald-200">Persona:</span>
         <div className="flex bg-primary-hover rounded-full p-0.5 border border-primary/20">
           <button
             onClick={() => handleRoleChange('worker')}

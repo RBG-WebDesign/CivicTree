@@ -1,7 +1,7 @@
 // src/app/admin/submissions/page.tsx
 import Link from 'next/link';
 import { prisma } from '@/lib/prisma';
-import { ShieldCheck, Plus, CheckSquare, Users, DollarSign, ArrowRight, Eye, Clock } from 'lucide-react';
+import { ShieldCheck, Plus, CheckSquare, Users, DollarSign, ArrowRight, Eye, Clock, Layers } from 'lucide-react';
 
 export const revalidate = 0; // Disable cache
 
@@ -53,11 +53,18 @@ export default async function AdminSubmissions() {
             Create Task
           </Link>
           <Link
-            href="/worker/today"
+            href="/dashboard"
             className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-emerald-200 hover:text-white hover:bg-emerald-900/30 transition-all border-t border-emerald-800/30 mt-4 pt-4"
           >
+            <Layers size={16} />
+            Command Center
+          </Link>
+          <Link
+            href="/worker/today"
+            className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-emerald-200 hover:text-white hover:bg-emerald-900/30 transition-all"
+          >
             <ArrowRight size={16} />
-            Switch to Worker View
+            Worker App
           </Link>
         </nav>
 

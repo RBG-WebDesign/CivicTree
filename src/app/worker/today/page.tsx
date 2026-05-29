@@ -3,7 +3,7 @@ import Link from 'next/link';
 import { cookies } from 'next/headers';
 import { prisma } from '@/lib/prisma';
 import WorkerNav from '@/components/WorkerNav';
-import { MapPin, DollarSign, Award, AlertCircle, ArrowRight, ShieldCheck, HelpCircle, Activity, Sparkles, Flame } from 'lucide-react';
+import { MapPin, Award, AlertCircle, ArrowRight, ShieldCheck, HelpCircle, Activity, Flame, TrendingUp } from 'lucide-react';
 
 export const revalidate = 0; // Disable caching
 
@@ -259,6 +259,36 @@ export default async function WorkerToday() {
             </div>
             <span className="text-[11px] font-bold text-[#2d6a4f] shrink-0">$2–3</span>
           </Link>
+
+          {/* Nearby campaign progress */}
+          {campaign && (
+            <Link
+              href="/worker/map"
+              className="bg-[#faf9f5] border border-border rounded-2xl p-4 flex items-center gap-3.5 hover:border-[#2d6a4f]/40 transition-colors group"
+            >
+              <div className="w-10 h-10 rounded-xl bg-emerald-100 flex items-center justify-center shrink-0">
+                <TrendingUp size={18} className="text-[#1b4332]" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="text-sm font-bold text-foreground font-heading">{campaign.title}</div>
+                <div className="flex items-center gap-2 mt-1">
+                  <div className="flex-1 bg-slate-200 h-1.5 rounded-full overflow-hidden">
+                    <div
+                      className="bg-[#2d6a4f] h-full rounded-full"
+                      style={{ width: `${Math.round((campaign.completedGoal / campaign.targetGoal) * 100)}%` }}
+                    />
+                  </div>
+                  <span className="text-[10px] font-black text-[#1b4332] shrink-0">
+                    {Math.round((campaign.completedGoal / campaign.targetGoal) * 100)}%
+                  </span>
+                </div>
+                <p className="text-[11px] text-[#555] mt-0.5">
+                  {campaign.targetGoal - campaign.completedGoal} tasks left to complete this block.
+                </p>
+              </div>
+              <ArrowRight size={16} className="text-muted group-hover:text-[#1b4332] shrink-0" />
+            </Link>
+          )}
 
           {/* Finish safety training — prominent if incomplete, confirmation if done */}
           {worker && !worker.onboardingCompleted ? (

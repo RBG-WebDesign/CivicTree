@@ -76,6 +76,22 @@ h1, h2, h3, h4, h5, h6 {
     linear-gradient(180deg, rgba(255, 255, 255, 0.48), transparent 45%, rgba(255, 255, 255, 0.34));
 }
 
+/* Dashboard needs-care tile pulse animation */
+@keyframes needs-care-glow {
+  0%, 100% { box-shadow: 0 0 8px rgba(239,68,68,0.2); }
+  50%       { box-shadow: 0 0 18px rgba(239,68,68,0.45), 0 0 4px rgba(239,68,68,0.3); }
+}
+
+.needs-care-pulse {
+  animation: needs-care-glow 2.4s ease-in-out infinite;
+}
+
+/* Dashboard dark scrollbars */
+.dashboard-root ::-webkit-scrollbar { width: 4px; }
+.dashboard-root ::-webkit-scrollbar-track { background: transparent; }
+.dashboard-root ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 4px; }
+.dashboard-root ::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.2); }
+
 /* Custom modern scrollbar */
 ::-webkit-scrollbar {
   width: 8px;
