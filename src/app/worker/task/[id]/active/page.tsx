@@ -29,8 +29,7 @@ interface Claim {
 export default function ActiveTask({ params }: { params: Promise<{ id: string }> }) {
   const router = useRouter();
   const { id: taskId } = use(params);
-  const workerId = 'worker-austin-id'; // Mock worker
-
+  const [workerId, setWorkerId] = useState('worker-austin-id');
   const [task, setTask] = useState<Task | null>(null);
   const [claim, setClaim] = useState<Claim | null>(null);
   const [loading, setLoading] = useState(true);

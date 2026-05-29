@@ -1,0 +1,129 @@
+// prisma/schema.prisma
+
+datasource db {
+  provider = "sqlite"
+}
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../src/generated/prisma"
+}
+
+model User {
+  id                  String       @id @default(uuid())
+  name                String
+  role                String // "worker" | "admin"
+  onboardingCompleted Boolean      @default(false)
+  neighborhood        String?
+  language            String       @default("en")
+  phone               String?
+  level               Int          @default(1)
+  reliabilityScore    Float        @default(100.0)
+  safetyScore         Float        @default(100.0)
+  unlockedTaskTypes   String       @default("beginner") // comma-separated e.g. "beginner,planter"
+  createdAt           DateTime     @default(now())
+  claims              Claim[]
+  submissions         Submission[]
+  reports             Report[]
+}
+
+model Task {
+  id               String       @id @default(uuid())
+  title            String
+  description      String
+  status           String       @default("open") // "open" | "claimed" | "submitted" | "approved" | "rejected"
+  payoutAmount     Float
+  estimatedMinutes Int
+  requiredTools    String // Comma-separated: "gloves, bags"
+  safetyNotes      String
+  doList           String // Comma-separated: "do this, do that"
+  dontList         String // Comma-separated: "don't touch needles"
+  latitude         Float
+  longitude        Float
+  taskType         String       @default("cleanup") // "cleanup" | "verify" | "report" | "observation" | "planter"
+  campaignId       String?
+  campaign         Campaign?    @relation(fields: [campaignId], references: [id], onDelete: SetNull)
+  isFundingNeeded  Boolean      @default(false)
+  isComingSoon     Boolean      @default(false)
+  reportedByUserId String?
+  createdAt        DateTime     @default(now())
+  claims           Claim[]
+  submissions      Submission[]
+}
+
+model Claim {
+  id          String       @id @default(uuid())
+  taskId      String
+  task        Task         @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  workerId    String
+  worker      User         @relation(fields: [workerId], references: [id], onDelete: Cascade)
+  status      String       @default("claimed") // "claimed" | "in_progress" | "submitted" | "completed"
+  claimedAt   DateTime     @default(now())
+  startedAt   DateTime?
+  completedAt DateTime?
+  gpsCheckin  String?
+  submissions Submission[]
+}
+
+model Submission {
+  id           String    @id @default(uuid())
+  taskId       String
+  task         Task      @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  workerId     String
+  worker       User      @relation(fields: [workerId], references: [id], onDelete: Cascade)
+  claimId      String
+  claim        Claim     @relation(fields: [claimId], references: [id], onDelete: Cascade)
+  beforePhotos String // comma-separated local URLs
+  afterPhotos  String // comma-separated local URLs
+  notes        String?
+  status       String    @default("submitted") // "submitted" | "approved" | "rejected"
+  submittedAt  DateTime  @default(now())
+  reviews      Review[]
+  payments     Payment[]
+}
+
+model Review {
+  id             String     @id @default(uuid())
+  submissionId   String
+  submission     Submission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+  reviewerId     String
+  decision       String // "approve" | "reject"
+  reason         String?
+  approvedAmount Float      @default(0.0)
+  createdAt      DateTime   @default(now())
+}
+
+model Payment {
+  id           String     @id @default(uuid())
+  workerId     String
+  submissionId String     @unique
+  submission   Submission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+  amount       Float
+  status       String     @default("pending_review") // "pending_review" | "available" | "paid" | "rejected"
+  createdAt    DateTime   @default(now())
+}
+
+model Campaign {
+  id              String   @id @default(uuid())
+  title           String
+  description     String
+  targetGoal      Int
+  completedGoal   Int      @default(0)
+  totalBudget     Float
+  remainingBudget Float
+  createdAt       DateTime @default(now())
+  tasks           Task[]
+}
+
+model Report {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  photoUrl  String
+  latitude  Float
+  longitude Float
+  category  String // "trash" | "graffiti" | "planter" | "biohazard" | ...
+  note      String
+  status    String   @default("pending") // "pending" | "approved_paid" | "approved_funding" | "city_routed" | "rejected"
+  createdAt DateTime @default(now())
+}
