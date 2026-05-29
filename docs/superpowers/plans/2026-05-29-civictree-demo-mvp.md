@@ -214,6 +214,10 @@ export const STORE_VERSION = 1;
 
 export const PLACEHOLDER_TASK_IMAGE = '/task_thumbnail.png';
 export const PLACEHOLDER_PROOF_IMAGE = '/volunteers_working.png';
+
+// Deterministic base time for demo records. Runtime records are stamped at
+// DEMO_EPOCH + (sequence * 1 minute) so timestamps are stable, not wall-clock.
+export const DEMO_EPOCH = Date.parse('2026-05-29T09:00:00.000Z');
 ```
 
 - [ ] **Step 2: Commit**
@@ -251,17 +255,13 @@ describe('createSeedState', () => {
     );
     expect(s.admins[0].id).toBe('admin-id');
   });
-  it("gives Austin a $24 available + $18 pending starting balance", () => {
+  it('gives Austin $24 available, $12 paid, $18 pending in the seed', () => {
     const s = createSeedState();
-    const austinPayments = s.payments.filter((p) => p.workerId === 'worker-austin-id');
-    const available = austinPayments
-      .filter((p) => p.status === 'available' || p.status === 'paid')
-      .reduce((sum, p) => sum + p.amount, 0);
-    const pending = austinPayments
-      .filter((p) => p.status === 'pending_review')
-      .reduce((sum, p) => sum + p.amount, 0);
-    expect(available).toBe(36); // $24 available + $12 already paid
-    expect(pending).toBe(18);
+    const ps = s.payments.filter((p) => p.workerId === 'worker-austin-id');
+    const sum = (status: string) => ps.filter((p) => p.status === status).reduce((a, p) => a + p.amount, 0);
+    expect(sum('available')).toBe(24);
+    expect(sum('paid')).toBe(12);
+    expect(sum('pending_review')).toBe(18);
   });
   it('seeds at least 6 open tasks', () => {
     expect(createSeedState().tasks.filter((t) => t.status === 'open').length).toBeGreaterThanOrEqual(6);
@@ -318,9 +318,10 @@ import { DEMO_USER_LOCATION } from './constants';
 describe('selectors', () => {
   it('computes Austin balances from seed', () => {
     const b = workerBalances(createSeedState(), 'worker-austin-id');
-    expect(b.available).toBe(36);
+    expect(b.available).toBe(24); // available to cash out (excludes already paid)
+    expect(b.paid).toBe(12);
     expect(b.pending).toBe(18);
-    expect(b.lifetime).toBe(54);
+    expect(b.lifetime).toBe(54); // available + paid + pending
   });
   it('computes campaign progress percent', () => {
     expect(campaignProgress(createSeedState(), 'campaign-broadway')).toBe(42);
@@ -356,16 +357,13 @@ import { DEMO_USER_LOCATION } from './constants';
 
 export function workerBalances(state: DemoState, workerId: string) {
   const ps = state.payments.filter((p) => p.workerId === workerId);
-  const available = ps
-    .filter((p) => p.status === 'available' || p.status === 'paid')
-    .reduce((s, p) => s + p.amount, 0);
-  const pending = ps
-    .filter((p) => p.status === 'pending_review')
-    .reduce((s, p) => s + p.amount, 0);
-  const lifetime = ps
-    .filter((p) => p.status !== 'rejected')
-    .reduce((s, p) => s + p.amount, 0);
-  return { available, pending, lifetime };
+  const sum = (status: string) =>
+    ps.filter((p) => p.status === status).reduce((s, p) => s + p.amount, 0);
+  const available = sum('available'); // available to cash out
+  const paid = sum('paid');           // already cashed out
+  const pending = sum('pending_review');
+  const lifetime = available + paid + pending; // excludes rejected
+  return { available, paid, pending, lifetime };
 }
 
 export function campaignProgress(state: DemoState, campaignId: string) {
@@ -514,14 +512,15 @@ Expected: FAIL (module not found).
 
 - [ ] **Step 3: Implement `reducers.ts`**
 
-Write each reducer as a pure function: deep-clone via `structuredClone(state)` at the top, mutate the clone, return it. IDs from a deterministic counter helper `nextId(prefix, state)` (e.g. count existing entities of that type + 1, prefixed) so they stay stable and testable. Use a fixed ISO timestamp helper `now()` returning `new Date().toISOString()` for runtime records (tests do not assert on these timestamps).
+Write each reducer as a pure function: deep-clone via `structuredClone(state)` at the top, mutate the clone, return it. IDs from a deterministic counter helper `nextId(prefix, n)` (collection length + 1, prefixed). Timestamps are deterministic too: `demoStamp(seq)` offsets `DEMO_EPOCH` by the sequence number so records are stable, not wall-clock.
 
 ```ts
 import type {
   DemoState, LatLng, Claim, Submission, Payment,
 } from './types';
+import { DEMO_EPOCH } from './constants';
 
-const now = () => new Date().toISOString();
+const demoStamp = (seq: number) => new Date(DEMO_EPOCH + seq * 60000).toISOString();
 function nextId(prefix: string, n: number) { return `${prefix}-${n + 1}`; }
 
 export function claimTask(state: DemoState, taskId: string, workerId: string): DemoState {
@@ -532,7 +531,7 @@ export function claimTask(state: DemoState, taskId: string, workerId: string): D
   const claim: Claim = {
     id: nextId('claim', s.claims.length),
     taskId, workerId, status: 'claimed',
-    claimedAt: now(), startedAt: null, completedAt: null, gpsCheckin: null,
+    claimedAt: demoStamp(s.claims.length), startedAt: null, completedAt: null, gpsCheckin: null,
   };
   s.claims.push(claim);
   return s;
@@ -543,7 +542,7 @@ export function checkInTask(state: DemoState, claimId: string, coords: LatLng): 
   const claim = s.claims.find((c) => c.id === claimId);
   if (!claim) return s;
   claim.status = 'in_progress';
-  claim.startedAt = now();
+  claim.startedAt = demoStamp(s.claims.length);
   claim.gpsCheckin = coords;
   const task = s.tasks.find((t) => t.id === claim.taskId);
   if (task) task.status = 'in_progress';
@@ -565,13 +564,13 @@ export function submitProof(
     id: nextId('sub', s.submissions.length),
     taskId: task.id, workerId: claim.workerId, claimId: claim.id,
     beforePhoto: proof.beforePhoto, afterPhoto: proof.afterPhoto, notes: proof.notes,
-    status: 'submitted', submittedAt: now(), reviewReason: null,
+    status: 'submitted', submittedAt: demoStamp(s.submissions.length), reviewReason: null,
   };
   s.submissions.push(submission);
   const payment: Payment = {
     id: nextId('pay', s.payments.length),
     workerId: claim.workerId, submissionId: submission.id,
-    amount: task.payoutAmount, status: 'pending_review', createdAt: now(),
+    amount: task.payoutAmount, status: 'pending_review', createdAt: demoStamp(s.payments.length),
   };
   s.payments.push(payment);
   return s;
@@ -598,7 +597,7 @@ export function reviewSubmission(
   }
 
   sub.status = 'approved';
-  if (claim) { claim.status = 'completed'; claim.completedAt = now(); }
+  if (claim) { claim.status = 'completed'; claim.completedAt = demoStamp(s.claims.length); }
   if (task) task.status = 'approved';
   if (payment) payment.status = 'available';
 
@@ -608,6 +607,9 @@ export function reviewSubmission(
     if (n) {
       n.tasksCompleted += 1;
       n.paidTotal += payment ? payment.amount : task.payoutAmount;
+      // Demo rule: one block is "improved" per 4 completed tasks, so impact
+      // does not overstate. Increment only when crossing a multiple of 4.
+      if (n.tasksCompleted % 4 === 0) n.blocksImproved += 1;
     }
     if (task.campaignId) {
       const c = s.campaigns.find((x) => x.id === task.campaignId);
@@ -636,7 +638,7 @@ export function createReport(
   s.reports.push({
     id: nextId('report', s.reports.length),
     userId: payload.userId, photoUrl: payload.photoUrl, location: payload.location,
-    category: payload.category, note: payload.note, status: 'pending', createdAt: now(),
+    category: payload.category, note: payload.note, status: 'pending', createdAt: demoStamp(s.reports.length),
   });
   return s;
 }
@@ -742,8 +744,17 @@ export const useDemoStore = create<DemoStore>()(
       name: STORE_KEY,
       version: STORE_VERSION,
       storage: createJSONStorage(() => localStorage),
+      // Persist only entity state, never the action functions. Actions always
+      // come from the initializer above and are merged back on rehydrate.
+      partialize: (state): DemoState => ({
+        workers: state.workers, admins: state.admins, sponsors: state.sponsors,
+        neighborhoods: state.neighborhoods, campaigns: state.campaigns,
+        tasks: state.tasks, claims: state.claims, submissions: state.submissions,
+        payments: state.payments, reports: state.reports,
+        activePersona: state.activePersona,
+      }),
       // Drop persisted state on version bump so seed shape changes never corrupt a demo.
-      migrate: () => ({ ...createSeedState() }) as DemoStore,
+      migrate: () => createSeedState() as Partial<DemoStore>,
     },
   ),
 );
@@ -844,7 +855,7 @@ git commit -m "feat(demo): toast provider and reset-demo control"
 - [ ] **Step 1:** Replace `fetch('/api/tasks')` + `fallbackTasks` with `useDemoStore((s) => s.tasks)`. Gate render on `useHydrated()` (show the existing loading spinner until hydrated). Adapt the local `Task` interface to import the demo `Task` type (note `location.lat/lng`, `requiredTools` is now `string[]`). Distance strings come from `taskDistanceMiles(task)` instead of hardcoded `0.{index}`.
 - [ ] **Step 2:** Pin color by status: `open` brand green, `claimed`/`in_progress` amber, `submitted` blue, `approved` muted/checked, `rejected` red. Keep the `$amount` label for open tasks; show a small status glyph otherwise.
 - [ ] **Step 3:** Selection already flows through `selectedTask`; ensure clicking a pin AND a list card both call `onSelectTask` and update the detail panel (already wired — verify with the new data). Filters call `filterTasks` from selectors.
-- [ ] **Step 4:** "Claim this task" link points to `/worker/task/${task.id}` (unchanged). The detail panel "Claim" remains a Link.
+- [ ] **Step 4:** "Claim this task" link points to `/worker/task/${task.id}` (unchanged). The detail panel "Claim" remains a Link. For `isComingSoon` tasks show a "Coming soon" badge and disable claiming; for `isFundingNeeded` tasks show a "Needs funding" badge and disable claiming. These appear via the `coming_soon` / `funding` filters (which intentionally bypass the open-status check) and must be visibly non-claimable so a worker never tries to claim them.
 - [ ] **Step 5:** Build. Playwright: load `/worker/map`; assert >= 6 task markers; click the second list card; assert the detail panel heading matches that card's title; click the "Quick" filter; assert marker count drops; assert a distance label matches `/\d+(\.\d+)? mi/`.
 - [ ] **Step 6:** Commit.
 
@@ -955,8 +966,8 @@ git commit -m "feat(demo): toast provider and reset-demo control"
 **Files:**
 - Create: `tests/e2e/demo-loop.spec.ts`
 
-- [ ] **Step 1:** Write a Playwright spec covering, in one browser context (shared localStorage):
-  1. Home `/`: Welcome intro renders; navigate into the product, click `Find tasks near me` → lands on `/worker/map`.
+- [ ] **Step 1:** Write a Playwright spec covering, in one browser context (shared localStorage). Select by stable accessible labels (`getByRole('button', { name: 'Begin' })`, `'Continue'`, `'Enter CivicTree Demo'`, `'Find tasks near me'`, persona buttons, `'Reset demo'`) rather than brittle visual text, so copy tweaks do not break the test:
+  1. Home `/`: Welcome intro renders ("Begin" present); click Begin, step through the walkthrough (Continue x N), click "Enter CivicTree Demo" to reach product home, then click `Find tasks near me` → lands on `/worker/map`.
   2. Map: a filter changes the visible marker count; selecting a pin updates the detail title.
   3. Worker claims a task → reaches `/active`.
   4. Worker checks in (geolocation fallback), submits proof with placeholder image → `/worker/today`.
