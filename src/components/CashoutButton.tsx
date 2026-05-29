@@ -2,8 +2,9 @@
 'use client';
 
 import { useState } from 'react';
-import { useRouter } from 'next/navigation';
 import { ArrowUpRight } from 'lucide-react';
+import { useDemoStore } from '@/lib/demo/store';
+import { useToast } from '@/components/demo/Toast';
 
 interface CashoutButtonProps {
   workerId: string;
@@ -11,34 +12,16 @@ interface CashoutButtonProps {
 }
 
 export default function CashoutButton({ workerId, availableBalance }: CashoutButtonProps) {
-  const router = useRouter();
   const [loading, setLoading] = useState(false);
+  const cashOut = useDemoStore((s) => s.cashOut);
+  const { notify } = useToast();
 
-  const handleCashout = async () => {
+  const handleCashout = () => {
     if (availableBalance <= 0) return;
     setLoading(true);
-
-    try {
-      const res = await fetch('/api/payouts/cashout', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ workerId }),
-      });
-
-      if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.error || 'Failed to cash out');
-      }
-
-      alert(`Success! Transferred $${availableBalance.toFixed(2)} to your card/bank account via Stripe Connect.`);
-      router.refresh(); // Refresh page data
-    } catch (err: any) {
-      alert(err.message || 'Payout failed');
-    } finally {
-      setLoading(false);
-    }
+    cashOut(workerId);
+    notify(`$${availableBalance.toFixed(2)} sent to your account.`, 'success');
+    setLoading(false);
   };
 
   if (availableBalance <= 0) {
