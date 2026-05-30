@@ -5,9 +5,13 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { ShieldCheck, Plus, CheckSquare, Users, DollarSign, ArrowRight, Save, X } from 'lucide-react';
+import { useDemoStore } from '@/lib/demo/store';
+import { useToast } from '@/components/demo/Toast';
 
 export default function AdminCreateTask() {
   const router = useRouter();
+  const createTask = useDemoStore((s) => s.createTask);
+  const { notify } = useToast();
 
   // Form Fields
   const [title, setTitle] = useState('');
@@ -20,48 +24,39 @@ export default function AdminCreateTask() {
   const [dontList, setDontList] = useState('Do not touch needles, Do not touch human waste, Do not enter private property');
   const [latitude, setLatitude] = useState('34.0456');
   const [longitude, setLongitude] = useState('-118.2505');
-  
+
   const [saving, setSaving] = useState(false);
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!title || !description || !payoutAmount || !estimatedMinutes) {
-      alert('Please fill out all required fields.');
+
+    const parsedPayout = parseFloat(payoutAmount);
+    const parsedMinutes = parseInt(estimatedMinutes, 10);
+
+    if (!title.trim() || !description.trim() || isNaN(parsedPayout) || isNaN(parsedMinutes)) {
+      notify('Fill in title, description, payout, and time.', 'error');
       return;
     }
 
     setSaving(true);
 
-    try {
-      const res = await fetch('/api/tasks', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          title,
-          description,
-          payoutAmount,
-          estimatedMinutes,
-          requiredTools,
-          safetyNotes,
-          doList,
-          dontList,
-          latitude,
-          longitude,
-        }),
-      });
+    createTask({
+      title: title.trim(),
+      description: description.trim(),
+      payoutAmount: parsedPayout,
+      estimatedMinutes: parsedMinutes,
+      requiredTools: requiredTools.split(',').map((s) => s.trim()).filter(Boolean),
+      safetyNotes: safetyNotes.trim(),
+      doList: doList.split(',').map((s) => s.trim()).filter(Boolean),
+      dontList: dontList.split(',').map((s) => s.trim()).filter(Boolean),
+      location: {
+        lat: parseFloat(latitude) || 34.0456,
+        lng: parseFloat(longitude) || -118.2505,
+      },
+    });
 
-      if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.error || 'Failed to create task');
-      }
-
-      router.push('/admin/submissions?created=success');
-    } catch (err: any) {
-      alert(err.message || 'Failed to create task');
-      setSaving(false);
-    }
+    notify('Task created and added to the map.', 'success');
+    router.push('/worker/map');
   };
 
   return (
