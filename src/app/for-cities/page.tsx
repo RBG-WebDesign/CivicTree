@@ -1,10 +1,35 @@
+'use client';
+
 // src/app/for-cities/page.tsx
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import Link from 'next/link';
-import { Building2, ShieldAlert, CheckSquare, Settings } from 'lucide-react';
+import { Building2, ShieldAlert, CheckSquare, Settings, Route, WalletCards } from 'lucide-react';
+import { useHydrated } from '@/lib/demo/hooks';
+import { useDemoStore } from '@/lib/demo/store';
+import { neighborhoodImpact } from '@/lib/demo/selectors';
+
+const money = new Intl.NumberFormat('en-US', {
+  style: 'currency',
+  currency: 'USD',
+  maximumFractionDigits: 0,
+});
 
 export default function ForCities() {
+  const hydrated = useHydrated();
+  const state = useDemoStore((s) => s);
+  const neighborhoods = hydrated ? neighborhoodImpact(state) : [];
+  const visibleNeighborhoods = neighborhoods.slice(0, 5);
+  const totals = neighborhoods.reduce(
+    (acc, n) => ({
+      completed: acc.completed + n.tasksCompleted,
+      paid: acc.paid + n.paidTotal,
+      blocks: acc.blocks + n.blocksImproved,
+      reports: acc.reports + n.openReports,
+    }),
+    { completed: 0, paid: 0, blocks: 0, reports: 0 },
+  );
+
   const useCases = [
     '311 triage',
     'Litter cleanup',
@@ -78,6 +103,64 @@ export default function ForCities() {
                 className="border border-[#e6e8e4] px-4 py-3.5 rounded-xl text-xs font-bold text-[#555] bg-white flex items-center justify-between"
               >
                 <span>{control}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="border border-[#e6e8e4] bg-[#faf9f5] p-8 rounded-3xl shadow-sm flex flex-col gap-6">
+          <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+            <div>
+              <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-wider text-[#1b4332]">
+                <Building2 size={14} />
+                Live demo city impact
+              </div>
+              <h2 className="mt-2 text-xl font-bold font-heading text-[#111]">Neighborhood rollup from verified work</h2>
+              <p className="mt-1 text-xs text-[#555] leading-relaxed">
+                These numbers come from the local demo store and update when admins approve work.
+              </p>
+            </div>
+            <div className="text-xs font-bold text-[#555]">
+              {hydrated ? `${neighborhoods.length} seeded neighborhoods` : 'Loading demo impact'}
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            {[
+              { label: 'Verified tasks', value: totals.completed.toLocaleString(), icon: CheckSquare },
+              { label: 'Demo payouts', value: money.format(totals.paid), icon: WalletCards },
+              { label: 'Blocks improved', value: totals.blocks.toLocaleString(), icon: Route },
+              { label: 'Open reports', value: totals.reports.toLocaleString(), icon: ShieldAlert },
+            ].map(({ label, value, icon: Icon }) => (
+              <div key={label} className="rounded-2xl border border-[#e6e8e4] bg-white p-4">
+                <div className="flex items-center justify-between text-[#2d6a4f]">
+                  <span className="text-[9px] uppercase tracking-wider font-black text-[#777]">{label}</span>
+                  <Icon size={15} />
+                </div>
+                <div className="mt-3 font-heading text-2xl font-black text-[#111]">{value}</div>
+              </div>
+            ))}
+          </div>
+
+          <div className="grid gap-3">
+            {visibleNeighborhoods.map((n) => (
+              <div key={n.id} className="rounded-2xl border border-[#e6e8e4] bg-white p-4">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <div className="font-heading text-sm font-extrabold text-[#111]">{n.name}</div>
+                    <div className="mt-1 text-[10px] font-semibold uppercase tracking-wider text-[#2d6a4f]">
+                      Level {n.level} / {n.state}
+                    </div>
+                  </div>
+                  <div className="text-right text-xs font-bold text-[#555]">
+                    {n.tasksCompleted} tasks
+                  </div>
+                </div>
+                <div className="mt-3 grid grid-cols-3 gap-2 text-[10px] text-[#555]">
+                  <span>{money.format(n.paidTotal)} demo paid</span>
+                  <span>{n.blocksImproved} blocks</span>
+                  <span>{n.openReports} open reports</span>
+                </div>
               </div>
             ))}
           </div>

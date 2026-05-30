@@ -30,7 +30,7 @@ export default function Footer() {
           <Link href="/sponsor" className="hover:text-black transition-colors">Sponsors</Link>
           <Link href="/dtla-pilot" className="hover:text-black transition-colors">DTLA Pilot</Link>
           <Link href={appLink} className="hover:text-black transition-colors">Worker App</Link>
-          <Link href="/admin" className="hover:text-black transition-colors">Admin Dashboard</Link>
+          <Link href="/admin/submissions" className="hover:text-black transition-colors">Admin Dashboard</Link>
         </div>
       </div>
     </footer>

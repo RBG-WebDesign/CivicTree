@@ -1,19 +1,25 @@
 // src/app/worker/report/page.tsx
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import Link from 'next/link';
 import WorkerNav from '@/components/WorkerNav';
 import { Camera, MapPin, CheckCircle, AlertTriangle, AlertCircle, ArrowLeft } from 'lucide-react';
+import { useDemoStore } from '@/lib/demo/store';
+import { useToast } from '@/components/demo/Toast';
+import { PLACEHOLDER_TASK_IMAGE } from '@/lib/demo/constants';
 
 export default function ReportProblem() {
-  const [userId, setUserId] = useState('worker-austin-id');
+  const workerId = useDemoStore((s) => s.activePersona.userId);
+  const createReport = useDemoStore((s) => s.createReport);
+  const { notify } = useToast();
+
   const [category, setCategory] = useState('trash');
   const [note, setNote] = useState('');
-  const [photoUrl, setPhotoUrl] = useState('/task_thumbnail.png');
+  const [photoUrl, setPhotoUrl] = useState(PLACEHOLDER_TASK_IMAGE);
   const [submitting, setSubmitting] = useState(false);
   const [success, setSuccess] = useState(false);
-  
+
   // simulated GPS
   const [lat, setLat] = useState(34.0456);
   const [lng, setLng] = useState(-118.2505);
@@ -31,45 +37,23 @@ export default function ReportProblem() {
     { id: 'other', name: 'Other' },
   ];
 
-  useEffect(() => {
-    const cookies = document.cookie.split('; ');
-    const userCookie = cookies.find((row) => row.startsWith('civictree_user_id='));
-    if (userCookie) {
-      setUserId(userCookie.split('=')[1]);
-    }
-  }, []);
-
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!category || !note) return;
     setSubmitting(true);
 
-    try {
-      const res = await fetch('/api/reports', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          userId,
-          category,
-          note,
-          latitude: lat,
-          longitude: lng,
-          photoUrl,
-        }),
-      });
+    createReport({
+      userId: workerId,
+      category,
+      note,
+      location: { lat, lng },
+      photoUrl: photoUrl || PLACEHOLDER_TASK_IMAGE,
+    });
 
-      if (!res.ok) throw new Error('Submission failed');
-      setSuccess(true);
-      setNote('');
-    } catch (err) {
-      console.error(err);
-      // fallback mock success for safety
-      setSuccess(true);
-    } finally {
-      setSubmitting(false);
-    }
+    setSuccess(true);
+    setNote('');
+    notify('Report submitted. Thanks!', 'success');
+    setSubmitting(false);
   };
 
   const handlePhotoUploadSim = () => {
@@ -77,7 +61,7 @@ export default function ReportProblem() {
     const photos = ['/task_thumbnail.png', '/volunteers_working.png'];
     const selected = photos[Math.floor(Math.random() * photos.length)];
     setPhotoUrl(selected);
-    alert('Simulated photo upload complete.');
+    notify('Simulated photo upload complete.', 'info');
   };
 
   const isBiohazard = category === 'biohazard';
@@ -101,7 +85,7 @@ export default function ReportProblem() {
               <CheckCircle size={32} className="text-[#2d6a4f]" />
             </div>
             <div className="flex flex-col gap-2">
-              <h2 className="text-xl font-bold text-foreground font-heading">Thanks. We’ll check this.</h2>
+              <h2 className="text-xl font-bold text-foreground font-heading">Thanks. We'll check this.</h2>
               <p className="text-xs text-muted leading-relaxed max-w-xs mx-auto">
                 If it can become a paid task, it may show up on the map. We will send you updates in your dashboard.
               </p>
@@ -110,7 +94,7 @@ export default function ReportProblem() {
             {isBiohazard && (
               <div className="bg-amber-50 border border-amber-200 text-amber-900 p-4 rounded-2xl text-xs font-semibold max-w-xs leading-relaxed text-left flex gap-2">
                 <AlertCircle size={16} className="text-amber-700 shrink-0 mt-0.5" />
-                <span>Do not touch it. We’ll route this biohazard directly to the right city team.</span>
+                <span>Do not touch it. We'll route this biohazard directly to the right city team.</span>
               </div>
             )}
 
@@ -126,14 +110,14 @@ export default function ReportProblem() {
             <div>
               <h2 className="text-lg font-black text-foreground font-heading">See something that needs care?</h2>
               <p className="text-xs text-muted mt-1 leading-relaxed">
-                Take a photo. We’ll check if it can become a paid task.
+                Take a photo. We'll check if it can become a paid task.
               </p>
             </div>
 
             {/* Photo Capture Simulator */}
             <div className="flex flex-col gap-1">
               <label className="text-[10px] font-bold text-[#888] uppercase tracking-wider">Photo proof</label>
-              <div 
+              <div
                 onClick={handlePhotoUploadSim}
                 className="border-2 border-dashed border-[#e6e8e4] rounded-2xl p-6 text-center cursor-pointer hover:bg-neutral-50 transition-all flex flex-col items-center justify-center gap-2"
               >
@@ -155,8 +139,8 @@ export default function ReportProblem() {
                     type="button"
                     onClick={() => setCategory(c.id)}
                     className={`px-3 py-2 rounded-xl border text-xs font-bold text-center transition-all ${
-                      category === c.id 
-                        ? 'border-primary bg-emerald-50/20 text-[#111]' 
+                      category === c.id
+                        ? 'border-primary bg-emerald-50/20 text-[#111]'
                         : 'border-[#e6e8e4] bg-white text-[#555] hover:bg-neutral-50'
                     }`}
                   >
@@ -185,9 +169,9 @@ export default function ReportProblem() {
                 <MapPin size={12} className="text-[#2d6a4f]" />
                 Location: {lat.toFixed(4)}, {lng.toFixed(4)}
               </span>
-              <button 
-                type="button" 
-                onClick={() => { setLat(34.0440 + Math.random()*0.003); setLng(-118.2520 + Math.random()*0.003); }}
+              <button
+                type="button"
+                onClick={() => { setLat(34.0440 + Math.random() * 0.003); setLng(-118.2520 + Math.random() * 0.003); }}
                 className="text-primary hover:underline cursor-pointer"
               >
                 Refresh coordinates
@@ -197,7 +181,7 @@ export default function ReportProblem() {
             {isBiohazard && (
               <div className="bg-amber-50 border border-amber-200 text-amber-900 p-4 rounded-xl text-xs font-semibold leading-relaxed flex gap-2">
                 <AlertTriangle size={16} className="text-amber-700 shrink-0 mt-0.5" />
-                <span>Do not touch needles or biohazards. Just take a photo from a safe distance and submit. We’ll alert special teams.</span>
+                <span>Do not touch needles or biohazards. Just take a photo from a safe distance and submit. We'll alert special teams.</span>
               </div>
             )}
 

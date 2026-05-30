@@ -1,77 +1,85 @@
-// src/app/admin/submissions/page.tsx
+'use client';
+
 import Link from 'next/link';
-import { prisma } from '@/lib/prisma';
-import { ShieldCheck, Plus, CheckSquare, Users, DollarSign, ArrowRight, Eye, Clock, Layers } from 'lucide-react';
+import { Plus, CheckSquare, DollarSign, ArrowRight, Eye, Clock, Layers } from 'lucide-react';
+import CivicTreeLogo from '@/components/CivicTreeLogo';
+import { useDemoStore } from '@/lib/demo/store';
+import { useHydrated } from '@/lib/demo/hooks';
 
-export const revalidate = 0; // Disable cache
+export default function AdminSubmissions() {
+  const submissions = useDemoStore((s) => s.submissions);
+  const tasks = useDemoStore((s) => s.tasks);
+  const workers = useDemoStore((s) => s.workers);
+  const payments = useDemoStore((s) => s.payments);
+  const hydrated = useHydrated();
 
-export default async function AdminSubmissions() {
-  // Fetch pending submissions
-  const pendingSubmissions = await prisma.submission.findMany({
-    where: { status: 'submitted' },
-    include: { task: true, worker: true },
-    orderBy: { submittedAt: 'desc' },
-  });
+  const sidebar = (
+    <aside className="w-full md:w-64 bg-primary text-white shrink-0 p-6 flex flex-col gap-8">
+      <Link href="/dashboard" aria-label="CivicTree command center" className="inline-flex">
+        <CivicTreeLogo size="sm" tone="dark" className="h-9 w-[119px]" />
+      </Link>
 
-  // Calculate quick admin dashboard stats
-  const allSubmissions = await prisma.submission.findMany({
-    include: { task: true },
-  });
+      <nav className="flex flex-col gap-1.5 text-sm font-medium">
+        <Link
+          href="/admin/submissions"
+          className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl bg-emerald-950/40 text-emerald-100 transition-all"
+        >
+          <CheckSquare size={16} />
+          Submissions Review
+        </Link>
+        <Link
+          href="/admin/tasks/create"
+          className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-emerald-200 hover:text-white hover:bg-emerald-900/30 transition-all"
+        >
+          <Plus size={16} />
+          Create Task
+        </Link>
+        <Link
+          href="/dashboard"
+          className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-emerald-200 hover:text-white hover:bg-emerald-900/30 transition-all border-t border-emerald-800/30 mt-4 pt-4"
+        >
+          <Layers size={16} />
+          Command Center
+        </Link>
+        <Link
+          href="/worker/today"
+          className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-emerald-200 hover:text-white hover:bg-emerald-900/30 transition-all"
+        >
+          <ArrowRight size={16} />
+          Worker App
+        </Link>
+      </nav>
 
+      <div className="mt-auto text-[10px] text-emerald-300/60 font-medium">
+        Downtown LA Pilot Console &bull; v1.0
+      </div>
+    </aside>
+  );
+
+  if (!hydrated) {
+    return (
+      <div className="flex-1 flex flex-col md:flex-row min-h-screen bg-slate-50">
+        {sidebar}
+        <main className="flex-1 p-6 md:p-8 flex items-center justify-center">
+          <div className="flex flex-col items-center gap-3">
+            <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin" />
+            <span className="text-sm text-muted">Loading submissions...</span>
+          </div>
+        </main>
+      </div>
+    );
+  }
+
+  const pendingSubmissions = submissions.filter((s) => s.status === 'submitted');
   const totalPending = pendingSubmissions.length;
-  
-  const totalApproved = allSubmissions.filter((s) => s.status === 'approved').length;
-  
-  const totalPaid = allSubmissions
-    .filter((s) => s.status === 'approved')
-    .reduce((sum, s) => sum + s.task.payoutAmount, 0);
+  const totalApproved = submissions.filter((s) => s.status === 'approved').length;
+  const totalPaid = payments
+    .filter((p) => p.status === 'available' || p.status === 'paid')
+    .reduce((sum, p) => sum + p.amount, 0);
 
   return (
     <div className="flex-1 flex flex-col md:flex-row min-h-screen bg-slate-50">
-      {/* Sidebar Navigation */}
-      <aside className="w-full md:w-64 bg-primary text-white shrink-0 p-6 flex flex-col gap-8">
-        <div className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded-lg bg-white text-primary flex items-center justify-center font-bold text-lg font-heading">
-            C
-          </div>
-          <span className="text-xl font-bold tracking-tight font-heading">CivicTree Admin</span>
-        </div>
-
-        <nav className="flex flex-col gap-1.5 text-sm font-medium">
-          <Link
-            href="/admin/submissions"
-            className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl bg-emerald-950/40 text-emerald-100 transition-all"
-          >
-            <CheckSquare size={16} />
-            Submissions Review
-          </Link>
-          <Link
-            href="/admin/tasks/create"
-            className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-emerald-200 hover:text-white hover:bg-emerald-900/30 transition-all"
-          >
-            <Plus size={16} />
-            Create Task
-          </Link>
-          <Link
-            href="/dashboard"
-            className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-emerald-200 hover:text-white hover:bg-emerald-900/30 transition-all border-t border-emerald-800/30 mt-4 pt-4"
-          >
-            <Layers size={16} />
-            Command Center
-          </Link>
-          <Link
-            href="/worker/today"
-            className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-emerald-200 hover:text-white hover:bg-emerald-900/30 transition-all"
-          >
-            <ArrowRight size={16} />
-            Worker App
-          </Link>
-        </nav>
-
-        <div className="mt-auto text-[10px] text-emerald-300/60 font-medium">
-          Downtown LA Pilot Console &bull; v1.0
-        </div>
-      </aside>
+      {sidebar}
 
       {/* Main Area */}
       <main className="flex-1 p-6 md:p-8 flex flex-col gap-6 max-w-6xl mx-auto w-full">
@@ -152,6 +160,9 @@ export default async function AdminSubmissions() {
                 </thead>
                 <tbody>
                   {pendingSubmissions.map((s) => {
+                    const task = tasks.find((t) => t.id === s.taskId);
+                    const worker = workers.find((w) => w.id === s.workerId);
+
                     const submittedDate = new Date(s.submittedAt).toLocaleDateString([], {
                       month: 'short',
                       day: 'numeric',
@@ -163,14 +174,20 @@ export default async function AdminSubmissions() {
                       <tr key={s.id} className="border-b border-slate-100 hover:bg-slate-50 transition-colors">
                         <td className="py-4 px-5">
                           <div className="flex flex-col">
-                            <span className="font-bold text-foreground text-sm font-heading">{s.task.title}</span>
-                            <span className="text-muted-foreground text-[10px] mt-0.5 max-w-sm truncate">{s.task.description}</span>
+                            <span className="font-bold text-foreground text-sm font-heading">
+                              {task?.title ?? 'Unknown Task'}
+                            </span>
+                            <span className="text-muted-foreground text-[10px] mt-0.5 max-w-sm truncate">
+                              {task?.description ?? ''}
+                            </span>
                           </div>
                         </td>
-                        <td className="py-4 px-5 font-semibold text-foreground">{s.worker.name}</td>
+                        <td className="py-4 px-5 font-semibold text-foreground">
+                          {worker?.name ?? 'Unknown Worker'}
+                        </td>
                         <td className="py-4 px-5 text-muted">{submittedDate}</td>
                         <td className="py-4 px-5 text-right font-bold text-primary text-sm font-heading">
-                          ${s.task.payoutAmount.toFixed(2)}
+                          ${(task?.payoutAmount ?? 0).toFixed(2)}
                         </td>
                         <td className="py-4 px-5 text-center">
                           <Link

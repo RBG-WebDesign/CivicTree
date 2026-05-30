@@ -107,3 +107,105 @@ h1, h2, h3, h4, h5, h6 {
 ::-webkit-scrollbar-thumb:hover {
   background: #a9b5a9;
 }
+
+.pitch-shell {
+  font-family: 'Plus Jakarta Sans', sans-serif;
+}
+
+.pitch-grid {
+  background-image:
+    linear-gradient(rgba(246, 242, 232, 0.08) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(246, 242, 232, 0.08) 1px, transparent 1px);
+  background-size: 72px 72px;
+  mask-image: radial-gradient(circle at 50% 42%, black, transparent 72%);
+}
+
+.pitch-map-light {
+  background:
+    linear-gradient(35deg, transparent 0 18%, rgba(255, 255, 255, 0.8) 18% 22%, transparent 22% 42%, rgba(255, 255, 255, 0.8) 42% 46%, transparent 46%),
+    linear-gradient(118deg, transparent 0 20%, rgba(255, 255, 255, 0.72) 20% 24%, transparent 24% 58%, rgba(255, 255, 255, 0.65) 58% 62%, transparent 62%),
+    radial-gradient(circle at 25% 25%, rgba(45, 106, 79, 0.22), transparent 24%),
+    radial-gradient(circle at 70% 70%, rgba(240, 198, 106, 0.2), transparent 22%),
+    #e8eadf;
+}
+
+.pitch-map-dark {
+  background:
+    radial-gradient(circle at 52% 46%, rgba(240, 198, 106, 0.2), transparent 18%),
+    radial-gradient(circle at 18% 72%, rgba(91, 153, 93, 0.18), transparent 20%),
+    linear-gradient(31deg, transparent 0 10%, rgba(230, 218, 165, 0.2) 10% 11%, transparent 11% 32%, rgba(230, 218, 165, 0.18) 32% 33%, transparent 33% 100%),
+    linear-gradient(118deg, transparent 0 18%, rgba(230, 218, 165, 0.18) 18% 19%, transparent 19% 52%, rgba(230, 218, 165, 0.16) 52% 53%, transparent 53% 100%),
+    linear-gradient(78deg, transparent 0 22%, rgba(92, 128, 88, 0.16) 22% 23%, transparent 23% 72%, rgba(92, 128, 88, 0.14) 72% 73%, transparent 73% 100%),
+    repeating-linear-gradient(0deg, rgba(255, 255, 255, 0.035) 0 1px, transparent 1px 38px),
+    repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.03) 0 1px, transparent 1px 42px),
+    #0b1711;
+}
+
+.pitch-map-dark::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(28deg, rgba(255, 255, 255, 0.045) 0 4%, transparent 4% 100%),
+    linear-gradient(118deg, transparent 0 5%, rgba(255, 255, 255, 0.04) 5% 9%, transparent 9% 100%);
+  background-size: 118px 86px, 142px 104px;
+  opacity: 0.72;
+}
+
+.pitch-map-dark::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(circle at 20% 22%, rgba(240, 198, 106, 0.35) 0 1px, transparent 2px),
+    radial-gradient(circle at 76% 28%, rgba(240, 198, 106, 0.28) 0 1px, transparent 2px),
+    radial-gradient(circle at 70% 72%, rgba(240, 198, 106, 0.24) 0 1px, transparent 2px),
+    linear-gradient(180deg, rgba(5, 11, 9, 0.05), rgba(5, 11, 9, 0.72));
+}
+
+.desktop-map-texture {
+  background:
+    linear-gradient(0deg, transparent 0 12%, rgba(255, 255, 255, 0.82) 12% 14%, transparent 14% 32%, rgba(255, 255, 255, 0.76) 32% 34%, transparent 34% 58%, rgba(255, 255, 255, 0.8) 58% 60%, transparent 60%),
+    linear-gradient(90deg, transparent 0 9%, rgba(255, 255, 255, 0.86) 9% 11%, transparent 11% 28%, rgba(255, 255, 255, 0.78) 28% 30%, transparent 30% 49%, rgba(255, 255, 255, 0.82) 49% 51%, transparent 51% 73%, rgba(255, 255, 255, 0.8) 73% 75%, transparent 75%),
+    linear-gradient(28deg, transparent 0 34%, rgba(255, 255, 255, 0.78) 34% 36%, transparent 36% 64%, rgba(255, 255, 255, 0.7) 64% 66%, transparent 66%),
+    radial-gradient(circle at 19% 20%, rgba(114, 173, 117, 0.18) 0 2.5%, transparent 2.6%),
+    radial-gradient(circle at 58% 13%, rgba(114, 173, 117, 0.18) 0 2%, transparent 2.1%),
+    radial-gradient(circle at 78% 64%, rgba(114, 173, 117, 0.2) 0 3.6%, transparent 3.7%),
+    linear-gradient(90deg, transparent 0 86%, rgba(130, 205, 236, 0.45) 86% 100%),
+    #e9ece5;
+}
+
+@keyframes pitch-rise {
+  from {
+    opacity: 0;
+    transform: translateY(18px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes pitch-float {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-10px);
+  }
+}
+
+.animate-pitch-rise {
+  animation: pitch-rise 700ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+.animate-pitch-float {
+  animation: pitch-float 8s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-pitch-rise,
+  .animate-pitch-float {
+    animation: none;
+  }
+}

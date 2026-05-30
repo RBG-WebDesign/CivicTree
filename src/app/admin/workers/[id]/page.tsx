@@ -5,6 +5,7 @@ import { useState, useEffect, use } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { ArrowLeft, User, ShieldAlert, Award, CheckSquare, DollarSign, Ban, Star, Mail, CheckCircle } from 'lucide-react';
+import CivicTreeLogo from '@/components/CivicTreeLogo';
 
 interface Submission {
   id: string;
@@ -59,14 +60,14 @@ export default function AdminWorkerProfile({ params }: { params: Promise<{ id: s
             notes: 'Sidewalk is now completely clean. Filled one bag.',
             status: 'submitted',
             submittedAt: new Date(Date.now() - 3600000).toISOString(),
-            task: { title: 'Clean sidewalk litter on Spring St', payoutAmount: 18.0 },
+            task: { title: 'Clean sidewalk litter on Spring St', payoutAmount: 28.0 },
           },
           {
             id: 'sub-hist-approved',
             notes: 'Watered all 4 planters.',
             status: 'approved',
             submittedAt: new Date(Date.now() - 86400000).toISOString(),
-            task: { title: 'Water planters on 7th St', payoutAmount: 24.0 },
+            task: { title: 'Water planters on 7th St', payoutAmount: 32.0 },
           },
         ];
         setSubmissions(mockSubmissions);
@@ -133,12 +134,9 @@ export default function AdminWorkerProfile({ params }: { params: Promise<{ id: s
     <div className="flex-1 flex flex-col md:flex-row min-h-screen bg-slate-50">
       {/* Sidebar Navigation */}
       <aside className="w-full md:w-64 bg-primary text-white shrink-0 p-6 flex flex-col gap-8">
-        <div className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded-lg bg-white text-primary flex items-center justify-center font-bold text-lg font-heading">
-            C
-          </div>
-          <span className="text-xl font-bold tracking-tight font-heading">CivicTree Admin</span>
-        </div>
+        <Link href="/dashboard" aria-label="CivicTree command center" className="inline-flex">
+          <CivicTreeLogo size="sm" tone="dark" className="h-9 w-[119px]" />
+        </Link>
 
         <nav className="flex flex-col gap-1.5 text-sm font-medium">
           <Link

@@ -1,290 +1,678 @@
-// src/app/worker/map/page.tsx
 'use client';
 
-import { useState, useEffect } from 'react';
+import Image from 'next/image';
 import Link from 'next/link';
+import { useMemo, useState } from 'react';
+import CivicTreeLogo from '@/components/CivicTreeLogo';
 import WorkerNav from '@/components/WorkerNav';
-import { MapPin, Search, ShieldAlert, Award, Plus, Menu, ArrowRight } from 'lucide-react';
+import { useHydrated } from '@/lib/demo/hooks';
+import { filterTasks, taskDistanceMiles } from '@/lib/demo/selectors';
+import { useDemoStore } from '@/lib/demo/store';
+import type { Task } from '@/lib/demo/types';
+import {
+  Bell,
+  Bookmark,
+  BriefcaseBusiness,
+  Calendar,
+  ChevronDown,
+  Clock3,
+  List,
+  LocateFixed,
+  Lock,
+  Map,
+  MapPin,
+  Navigation,
+  Plus,
+  Search,
+  ShieldCheck,
+  SlidersHorizontal,
+  Star,
+} from 'lucide-react';
 
-interface Task {
-  id: string;
-  title: string;
-  description: string;
-  status: string;
-  payoutAmount: number;
-  estimatedMinutes: number;
-  requiredTools: string;
-  safetyNotes: string;
-  latitude: number;
-  longitude: number;
-  taskType: string;
-  isFundingNeeded: boolean;
-  isComingSoon: boolean;
+type ViewMode = 'desktop' | 'mobile';
+
+const taskImages = ['/task_thumbnail.png', '/volunteers_working.png'];
+
+function pinColor(status: Task['status']) {
+  switch (status) {
+    case 'claimed':
+    case 'in_progress': return '#d9892f'; // amber
+    case 'submitted': return '#2563eb';   // blue
+    case 'approved': return '#15803d';    // deep green done
+    case 'rejected': return '#b91c1c';    // red
+    default: return '#197243';            // open = brand green
+  }
+}
+
+function getCoordinates(lat: number, lng: number) {
+  const latMin = 34.0425;
+  const latMax = 34.0465;
+  const lngMin = -118.253;
+  const lngMax = -118.2475;
+  const x = ((lng - lngMin) / (lngMax - lngMin)) * 100;
+  const y = (1 - (lat - latMin) / (latMax - latMin)) * 100;
+
+  return {
+    x: Math.min(Math.max(x, 8), 92),
+    y: Math.min(Math.max(y, 12), 86),
+  };
+}
+
+function taskImage(task: Task, index = 0) {
+  if (task.taskType === 'planter') return '/volunteers_working.png';
+  return taskImages[index % taskImages.length];
+}
+
+function taskTypeLabel(task: Task) {
+  if (task.taskType === 'planter') return 'Maintenance';
+  if (task.taskType === 'painting') return 'Painting';
+  if (task.taskType === 'verify') return 'Verify';
+  return 'Cleanup';
+}
+
+function difficultyLabel(task: Task) {
+  if (task.payoutAmount >= 100) return 'Team';
+  if (task.payoutAmount >= 40) return 'Medium';
+  return 'Easy';
+}
+
+function activeTaskValue(tasks: Task[]) {
+  return tasks
+    .filter((task) => task.status === 'open' && !task.isComingSoon && !task.isFundingNeeded)
+    .reduce((sum, task) => sum + task.payoutAmount, 0);
+}
+
+function activeTaskMinutes(tasks: Task[]) {
+  return tasks
+    .filter((task) => task.status === 'open' && !task.isComingSoon && !task.isFundingNeeded)
+    .reduce((sum, task) => sum + task.estimatedMinutes, 0);
+}
+
+function hourlyEquivalent(task: Task) {
+  return Math.round((task.payoutAmount / task.estimatedMinutes) * 60);
 }
 
 export default function WorkerMap() {
-  const [tasks, setTasks] = useState<Task[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [selectedTask, setSelectedTask] = useState<Task | null>(null);
-  
-  // Filter states
-  const [activeFilter, setActiveFilter] = useState<string>('all');
-  
-  useEffect(() => {
-    async function fetchTasks() {
-      try {
-        const res = await fetch('/api/tasks');
-        if (res.ok) {
-          const data = await res.json();
-          // Filter to show tasks that are open or coming soon/funding needed on the map
-          setTasks(data);
-          // Set initial selection to the litter task
-          const defaultTask = data.find((t: Task) => t.id === 'task-litter-oak');
-          if (defaultTask) setSelectedTask(defaultTask);
-        }
-      } catch (err) {
-        console.error(err);
-      } finally {
-        setLoading(false);
-      }
-    }
-    fetchTasks();
-  }, []);
+  const tasks = useDemoStore((s) => s.tasks);
+  const hydrated = useHydrated();
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [activeFilter, setActiveFilter] = useState('all');
+  const [viewMode, setViewMode] = useState<ViewMode>('desktop');
 
-  const handleFilterChange = (filter: string) => {
-    setActiveFilter(filter);
-    // Auto-select first matching task
-    const filtered = applyFilters(tasks, filter);
-    if (filtered.length > 0) {
-      setSelectedTask(filtered[0]);
-    } else {
-      setSelectedTask(null);
-    }
-  };
+  const visibleTasks = useMemo(() => filterTasks(tasks, activeFilter), [tasks, activeFilter]);
+  const selectedTask = visibleTasks.find((t) => t.id === selectedId) ?? visibleTasks[0] ?? tasks[0];
 
-  const applyFilters = (taskList: Task[], filter: string) => {
-    return taskList.filter((t) => {
-      // Only show open, coming soon, or funding needed tasks on map
-      if (t.status !== 'open') return false;
+  function onSelectTask(task: Task) {
+    setSelectedId(task.id);
+  }
 
-      if (filter === 'quick') {
-        return t.estimatedMinutes <= 20;
-      }
-      if (filter === 'highest_pay') {
-        return t.payoutAmount >= 20;
-      }
-      if (filter === 'no_tools') {
-        return t.requiredTools.toLowerCase().includes('none') || !t.requiredTools;
-      }
-      if (filter === 'verify') {
-        return t.taskType === 'verify';
-      }
-      if (filter === 'coming_soon') {
-        return t.isComingSoon;
-      }
-      if (filter === 'funding') {
-        return t.isFundingNeeded;
-      }
-      return true;
-    });
-  };
+  if (!hydrated) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-[#fbfbf8]">
+        <div className="h-8 w-8 animate-spin rounded-full border-2 border-[#197243] border-t-transparent" />
+      </div>
+    );
+  }
 
-  const visibleTasks = applyFilters(tasks, activeFilter);
+  return (
+    <div className="min-h-screen bg-[#fbfbf8] text-[#111814]">
+      <DesktopHeader viewMode={viewMode} onViewModeChange={setViewMode} />
+      {viewMode === 'desktop' ? (
+        <DesktopMapView
+          activeFilter={activeFilter}
+          onFilterChange={setActiveFilter}
+          onSelectTask={onSelectTask}
+          selectedTask={selectedTask}
+          tasks={visibleTasks}
+        />
+      ) : (
+        <MobileMapView
+          activeFilter={activeFilter}
+          onFilterChange={setActiveFilter}
+          onSelectTask={onSelectTask}
+          selectedTask={selectedTask}
+          tasks={visibleTasks}
+        />
+      )}
+    </div>
+  );
+}
 
-  // Hardcode coordinates to SVG mapping
-  // Map center is around 34.0445, -118.2505
-  const getCoordinates = (lat: number, lng: number) => {
-    const latMin = 34.0425;
-    const latMax = 34.0465;
-    const lngMin = -118.2530;
-    const lngMax = -118.2475;
+function DesktopHeader({
+  viewMode,
+  onViewModeChange,
+}: {
+  viewMode: ViewMode;
+  onViewModeChange: (mode: ViewMode) => void;
+}) {
+  return (
+    <header className="sticky top-0 z-50 border-b border-[#e6e8e4] bg-white/95 px-6 py-4 shadow-sm backdrop-blur md:px-8">
+      <div className="mx-auto flex max-w-[1500px] items-center justify-between gap-6">
+        <Link href="/" aria-label="CivicTree home">
+          <CivicTreeLogo size="md" />
+        </Link>
 
-    // Calculate percent positions
-    const x = ((lng - lngMin) / (lngMax - lngMin)) * 100;
-    // latitude is inverted on screen (y=0 is top)
-    const y = (1 - (lat - latMin) / (latMax - latMin)) * 100;
+        <nav className="hidden items-center gap-10 text-sm font-black text-[#101814] lg:flex">
+          <Link href="/how-it-works" className="hover:text-[#067333]">How it works</Link>
+          <Link href="/earn" className="hover:text-[#067333]">Earn</Link>
+          <Link href="/for-cities" className="hover:text-[#067333]">For Cities</Link>
+          <Link href="/sponsor" className="hover:text-[#067333]">Sponsor</Link>
+        </nav>
 
-    return { x: Math.min(Math.max(x, 10), 90), y: Math.min(Math.max(y, 10), 85) };
-  };
+        <div className="flex items-center gap-3">
+          <div className="hidden rounded-2xl border border-[#e2e5de] bg-[#f7f8f4] p-1 md:flex">
+            <button
+              type="button"
+              onClick={() => onViewModeChange('desktop')}
+              className={`inline-flex items-center gap-2 rounded-xl px-3 py-2 text-xs font-black transition ${
+                viewMode === 'desktop' ? 'bg-white text-[#067333] shadow-sm' : 'text-[#617067] hover:text-[#101814]'
+              }`}
+            >
+              <Map size={15} />
+              Desktop map
+            </button>
+            <button
+              type="button"
+              onClick={() => onViewModeChange('mobile')}
+              className={`inline-flex items-center gap-2 rounded-xl px-3 py-2 text-xs font-black transition ${
+                viewMode === 'mobile' ? 'bg-white text-[#067333] shadow-sm' : 'text-[#617067] hover:text-[#101814]'
+              }`}
+            >
+              <Navigation size={15} />
+              Mobile app
+            </button>
+          </div>
 
+          <button type="button" className="relative hidden h-11 w-11 items-center justify-center rounded-full border border-[#e2e5de] bg-white md:flex">
+            <Bell size={20} />
+            <span className="absolute right-1.5 top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-[#067333] px-1 text-[10px] font-black text-white">3</span>
+          </button>
+
+          <button type="button" className="flex items-center gap-3 rounded-full border border-[#e2e5de] bg-white py-1.5 pl-2 pr-4 shadow-sm">
+            <span className="relative h-10 w-10 overflow-hidden rounded-full bg-[#dce8d8]">
+              <Image src="/task_thumbnail.png" alt="Jordan profile" fill className="object-cover" sizes="40px" />
+            </span>
+            <span className="hidden text-left sm:block">
+              <span className="block text-sm font-black leading-4">Jordan</span>
+              <span className="block text-xs font-semibold text-[#667067]">Worker</span>
+            </span>
+            <ChevronDown size={16} className="text-[#667067]" />
+          </button>
+        </div>
+      </div>
+    </header>
+  );
+}
+
+function DesktopMapView({
+  activeFilter,
+  onFilterChange,
+  onSelectTask,
+  selectedTask,
+  tasks,
+}: {
+  activeFilter: string;
+  onFilterChange: (filter: string) => void;
+  onSelectTask: (task: Task) => void;
+  selectedTask: Task | undefined;
+  tasks: Task[];
+}) {
+  const selectedIndex = selectedTask ? Math.max(tasks.findIndex((task) => task.id === selectedTask.id), 0) : 0;
+  const availableToday = activeTaskValue(tasks);
+  const minutesToday = activeTaskMinutes(tasks);
+  const hoursToday = Math.max(1, Math.round((minutesToday / 60) * 10) / 10);
+
+  return (
+    <main className="mx-auto max-w-[1500px] px-6 py-8 md:px-8">
+      <section className="flex flex-col gap-6 xl:flex-row xl:items-end xl:justify-between">
+        <div>
+          <h1 className="text-4xl font-black tracking-tight text-[#070b09] md:text-5xl">Find paid tasks near you</h1>
+          <p className="mt-2 text-lg font-semibold text-[#5d665f]">Real work. Real impact. Real pay.</p>
+          <p className="mt-2 text-sm font-black text-[#197243]">
+            ${availableToday.toFixed(0)} available today across about {hoursToday} active hours.
+          </p>
+        </div>
+
+        <div className="flex flex-col gap-3 sm:flex-row">
+          <button type="button" className="inline-flex min-w-[280px] items-center justify-between rounded-xl border border-[#e1e4dc] bg-white px-5 py-4 text-sm font-bold shadow-sm">
+            <span className="inline-flex items-center gap-3">
+              <MapPin className="text-[#197243]" size={20} />
+              Near: 94110
+            </span>
+            <span className="inline-flex items-center gap-3 border-l border-[#e1e4dc] pl-5 text-[#5f6961]">
+              Within 2 miles
+              <ChevronDown size={16} />
+            </span>
+          </button>
+          <button type="button" className="inline-flex items-center justify-center gap-3 rounded-xl border border-[#e1e4dc] bg-white px-6 py-4 text-sm font-black shadow-sm">
+            <SlidersHorizontal size={18} />
+            Filters
+          </button>
+        </div>
+      </section>
+
+      <DesktopFilters activeFilter={activeFilter} onFilterChange={onFilterChange} />
+
+      <section className="grid gap-6 xl:grid-cols-[450px_1fr]">
+        <aside className="min-w-0">
+          <div className="mb-3 text-sm font-semibold text-[#404a43]">
+            {`${Math.max(tasks.length, 0)} tasks nearby · $${availableToday.toFixed(0)} available today`}
+          </div>
+          <div className="grid gap-3">
+            {tasks.length === 0 ? (
+              <div className="rounded-xl border border-[#e1e4dc] bg-white p-6 text-center text-sm font-bold text-[#667067]">
+                No tasks match this view yet.
+              </div>
+            ) : (
+              tasks.slice(0, 5).map((task, index) => (
+                <TaskListCard
+                  index={index}
+                  key={task.id}
+                  onSelect={() => onSelectTask(task)}
+                  selected={selectedTask?.id === task.id}
+                  task={task}
+                />
+              ))
+            )}
+            <button type="button" className="flex h-14 items-center justify-center gap-2 rounded-xl border border-[#e1e4dc] bg-white text-sm font-black text-[#111814] shadow-sm">
+              Load more tasks
+              <ChevronDown size={16} />
+            </button>
+          </div>
+        </aside>
+
+        <div className="min-w-0 overflow-hidden rounded-2xl border border-[#e2e5de] bg-white shadow-sm">
+          {selectedTask && (
+            <>
+              <TaskMap selectedTask={selectedTask} tasks={visiblePins(tasks)} onSelectTask={onSelectTask} />
+              <DesktopTaskDetail task={selectedTask} index={selectedIndex} />
+            </>
+          )}
+        </div>
+      </section>
+    </main>
+  );
+}
+
+function visiblePins(tasks: Task[]) {
+  return tasks.slice(0, 5);
+}
+
+function DesktopFilters({
+  activeFilter,
+  onFilterChange,
+}: {
+  activeFilter: string;
+  onFilterChange: (filter: string) => void;
+}) {
+  const filters = [
+    ['all', 'All tasks', List],
+    ['today', 'Today', Calendar],
+    ['week', 'This week', Calendar],
+    ['nearest', 'Sort: Nearest', ChevronDown],
+    ['types', 'All types', ChevronDown],
+    ['highest_pay', 'Pay: High to low', ChevronDown],
+    ['quick', 'Beginner friendly', Star],
+  ] as const;
+
+  return (
+    <div className="my-8 flex flex-wrap items-center gap-5 border-y border-[#edf0e9] bg-white/40 py-4">
+      {filters.map(([id, label, Icon]) => (
+        <button
+          key={id}
+          type="button"
+          onClick={() => onFilterChange(id === 'today' || id === 'week' || id === 'nearest' || id === 'types' ? 'all' : id)}
+          className={`inline-flex h-11 items-center gap-2 rounded-xl border px-5 text-sm font-bold transition ${
+            activeFilter === id || (id === 'all' && activeFilter === 'all')
+              ? 'border-[#067333] bg-[#067333] text-white shadow-sm'
+              : 'border-[#e1e4dc] bg-white text-[#111814] shadow-sm hover:border-[#b9c5b9]'
+          }`}
+        >
+          <Icon size={17} />
+          {label}
+        </button>
+      ))}
+      <button type="button" onClick={() => onFilterChange('all')} className="ml-auto text-sm font-black text-[#197243]">
+        Clear all
+      </button>
+    </div>
+  );
+}
+
+function TaskListCard({
+  index,
+  onSelect,
+  selected,
+  task,
+}: {
+  index: number;
+  onSelect: () => void;
+  selected: boolean;
+  task: Task;
+}) {
+  const type = taskTypeLabel(task);
+  const difficulty = difficultyLabel(task);
+
+  return (
+    <button
+      type="button"
+      onClick={onSelect}
+      className={`grid grid-cols-[96px_1fr_auto] gap-4 rounded-xl border bg-white p-3 text-left shadow-sm transition hover:-translate-y-0.5 hover:shadow-md ${
+        selected ? 'border-[#197243] ring-1 ring-[#197243]' : 'border-[#e1e4dc]'
+      }`}
+    >
+      <span className="relative h-24 overflow-hidden rounded-lg bg-[#e6ebe1]">
+        <Image src={taskImage(task, index)} alt="" fill className="object-cover" sizes="96px" />
+      </span>
+      <span className="min-w-0 py-1">
+        {selected && <span className="mb-2 inline-flex rounded-full bg-[#e4f3df] px-2.5 py-1 text-xs font-black text-[#197243]">Nearby</span>}
+        <span className="block truncate text-lg font-black text-[#101814]">{task.title}</span>
+        <span className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs font-semibold text-[#46534a]">
+          <span className="inline-flex items-center gap-1"><MapPin size={13} />{taskDistanceMiles(task).toFixed(1)} mi away</span>
+          <span className="inline-flex items-center gap-1"><Clock3 size={13} />{task.estimatedMinutes} min</span>
+        </span>
+        <span className="mt-3 flex gap-2">
+          <span className="rounded-full bg-[#e4f3df] px-2.5 py-1 text-xs font-black text-[#197243]">{type}</span>
+          <span className={`rounded-full px-2.5 py-1 text-xs font-black ${difficulty === 'Easy' ? 'bg-[#e4f3df] text-[#197243]' : 'bg-[#fff0d8] text-[#a05b12]'}`}>{difficulty}</span>
+          <span className="rounded-full bg-[#f7f1d9] px-2.5 py-1 text-xs font-black text-[#7a5c0b]">${hourlyEquivalent(task)}/hr active</span>
+        </span>
+      </span>
+      <span className="flex flex-col items-end justify-center pr-1">
+        <span className="text-3xl font-black text-[#197243]">${Math.round(task.payoutAmount)}</span>
+        <span className="mt-1 text-xs font-semibold text-[#667067]">Est. pay</span>
+      </span>
+    </button>
+  );
+}
+
+function TaskMap({
+  onSelectTask,
+  selectedTask,
+  tasks,
+}: {
+  onSelectTask: (task: Task) => void;
+  selectedTask: Task;
+  tasks: Task[];
+}) {
+  return (
+    <div className="relative h-[380px] overflow-hidden border-b border-[#e2e5de] bg-[#eef0ea]">
+      <div className="absolute inset-0 desktop-map-texture" />
+      <MapLabel className="left-[16%] top-[8%]" label="16th St" />
+      <MapLabel className="left-[48%] top-[12%]" label="18th St" />
+      <MapLabel className="left-[14%] top-[33%]" label="MISSION DISTRICT" large />
+      <MapLabel className="right-[13%] top-[31%]" label="DOGPATCH" large />
+      <MapLabel className="left-[36%] top-[56%]" label="Cesar Chavez St" />
+      <MapLabel className="right-[28%] top-[57%]" label="3rd St" rotate />
+      <MapLabel className="right-[18%] top-[43%]" label="Bryant St" rotate />
+
+      <div className="absolute left-[42%] top-[50%] flex h-28 w-28 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-[#77aee9]/15">
+        <span className="h-6 w-6 rounded-full border-4 border-white bg-[#2879ff] shadow-lg" />
+      </div>
+
+      {tasks.map((task, index) => {
+        const fallbackPositions = [
+          { x: 33, y: 17 },
+          { x: 10, y: 58 },
+          { x: 68, y: 32 },
+          { x: 76, y: 68 },
+          { x: 33, y: 58 },
+        ];
+        const coords = getCoordinates(task.location.lat, task.location.lng);
+        const position = Number.isFinite(coords.x) ? coords : fallbackPositions[index];
+        const selected = selectedTask.id === task.id;
+        const color = pinColor(task.status);
+
+        return (
+          <button
+            type="button"
+            key={task.id}
+            onClick={() => onSelectTask(task)}
+            className={`absolute flex h-12 min-w-12 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full rounded-bl-sm px-2 text-sm font-black text-white shadow-lg transition hover:scale-105 ${
+              selected ? 'z-20 scale-110 ring-4 ring-white/30' : ''
+            }`}
+            style={{ left: `${position.x}%`, top: `${position.y}%`, backgroundColor: color }}
+            aria-label={`Select ${task.title}`}
+          >
+            ${Math.round(task.payoutAmount)}
+          </button>
+        );
+      })}
+
+      <button type="button" className="absolute right-5 top-1/2 flex h-12 w-12 -translate-y-1/2 items-center justify-center rounded-xl bg-white text-[#111814] shadow-lg">
+        <LocateFixed size={22} />
+      </button>
+      <div className="absolute bottom-9 right-5 overflow-hidden rounded-xl bg-white shadow-lg">
+        <button type="button" className="flex h-12 w-12 items-center justify-center border-b border-[#e2e5de] text-2xl font-semibold">+</button>
+        <button type="button" className="flex h-12 w-12 items-center justify-center text-2xl font-semibold">-</button>
+      </div>
+    </div>
+  );
+}
+
+function MapLabel({
+  className,
+  label,
+  large = false,
+  rotate = false,
+}: {
+  className: string;
+  label: string;
+  large?: boolean;
+  rotate?: boolean;
+}) {
+  return (
+    <span className={`absolute select-none font-semibold text-[#8a928b] ${large ? 'text-lg tracking-wide' : 'text-sm'} ${rotate ? 'rotate-90' : ''} ${className}`}>
+      {label}
+    </span>
+  );
+}
+
+function DesktopTaskDetail({ task, index }: { task: Task; index: number }) {
+  return (
+    <div className="grid gap-6 bg-white p-6 lg:grid-cols-[310px_1fr] xl:grid-cols-[330px_1fr]">
+      <div>
+        <div className="relative aspect-[4/3] overflow-hidden rounded-xl bg-[#e6ebe1]">
+          <Image src={taskImage(task, index)} alt={task.title} fill className="object-cover" sizes="330px" />
+        </div>
+        <div className="mt-3 grid grid-cols-2 gap-3">
+          {['Before', 'After'].map((label, photoIndex) => (
+            <div key={label}>
+              <div className="relative aspect-[4/3] overflow-hidden rounded-lg bg-[#e6ebe1]">
+                <Image src={taskImages[(index + photoIndex) % taskImages.length]} alt={`${label} example`} fill className="object-cover" sizes="160px" />
+                <span className="absolute bottom-2 left-2 text-xs font-black text-white drop-shadow">{label}</span>
+              </div>
+              <div className="mt-2 text-xs font-semibold text-[#101814]">{label}{label === 'After' ? ' (example)' : ''}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="rounded-2xl border border-[#edf0e9] bg-white p-6 shadow-sm">
+        <div className="flex items-start justify-between gap-6">
+          <div>
+            <h2 className="text-3xl font-black text-[#101814]">{task.title}</h2>
+            <div className="mt-2 flex flex-wrap items-center gap-3 text-sm font-semibold text-[#667067]">
+              <span className="inline-flex items-center gap-1.5"><MapPin size={16} />Sponsored by Broadway Block Reset</span>
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-[#e4f3df] px-3 py-1 font-black text-[#197243]">
+                <ShieldCheck size={15} />
+                Verified
+              </span>
+            </div>
+          </div>
+          <div className="text-right">
+            <div className="text-4xl font-black text-[#197243]">${Math.round(task.payoutAmount)}</div>
+            <div className="mt-1 text-sm font-semibold text-[#667067]">Est. pay</div>
+          </div>
+        </div>
+
+        <p className="mt-7 max-w-2xl text-base leading-7 text-[#344139]">{task.description}</p>
+
+        <div className="mt-7 grid overflow-hidden rounded-xl border border-[#edf0e9] bg-[#fcfcfa] sm:grid-cols-4">
+          <Metric label="Estimated time" value={`${task.estimatedMinutes} min`} />
+          <Metric label="Distance" value={`${taskDistanceMiles(task).toFixed(1)} mi`} />
+          <Metric label="Active rate" value={`$${hourlyEquivalent(task)}/hr`} accent />
+          <Metric label="Difficulty" value={difficultyLabel(task)} accent />
+        </div>
+
+        <div className="mt-5 grid gap-4 rounded-xl border border-[#edf0e9] bg-[#fcfcfa] p-5 md:grid-cols-2">
+          <InfoBlock icon={BriefcaseBusiness} title="Proof required" copy="Before and after photos from same angle" />
+          <InfoBlock icon={Lock} title="You'll need" copy={task.requiredTools.length ? task.requiredTools.join(', ') : 'Gloves, trash bag'} />
+        </div>
+
+        <div className="mt-6 grid gap-4 sm:grid-cols-[180px_1fr]">
+          <button type="button" className="inline-flex h-14 items-center justify-center gap-3 rounded-xl border border-[#e1e4dc] bg-white text-sm font-black text-[#101814]">
+            <Bookmark size={20} />
+            Save task
+          </button>
+          <Link href={`/worker/task/${task.id}`} className="inline-flex h-14 items-center justify-center gap-3 rounded-xl bg-[#197243] text-sm font-black text-white shadow-[0_14px_28px_rgba(25,114,67,0.2)]">
+            <Lock size={18} />
+            Claim this task
+          </Link>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function Metric({ accent = false, label, value }: { accent?: boolean; label: string; value: string }) {
+  return (
+    <div className="border-b border-[#edf0e9] p-5 last:border-b-0 sm:border-b-0 sm:border-r sm:last:border-r-0">
+      <div className={`text-base font-black ${accent ? 'text-[#197243]' : 'text-[#101814]'}`}>{value}</div>
+      <div className="mt-1 text-xs font-semibold text-[#667067]">{label}</div>
+    </div>
+  );
+}
+
+function InfoBlock({
+  copy,
+  icon: Icon,
+  title,
+}: {
+  copy: string;
+  icon: typeof BriefcaseBusiness;
+  title: string;
+}) {
+  return (
+    <div className="flex items-start gap-3">
+      <Icon size={20} className="mt-0.5 text-[#101814]" />
+      <div>
+        <div className="text-sm font-black text-[#101814]">{title}</div>
+        <div className="mt-1 text-xs font-semibold text-[#667067]">{copy}</div>
+      </div>
+    </div>
+  );
+}
+
+function MobileMapView({
+  activeFilter,
+  onFilterChange,
+  onSelectTask,
+  selectedTask,
+  tasks,
+}: {
+  activeFilter: string;
+  onFilterChange: (filter: string) => void;
+  onSelectTask: (task: Task) => void;
+  selectedTask: Task | undefined;
+  tasks: Task[];
+}) {
+  const availableToday = activeTaskValue(tasks);
   const filters = [
     { id: 'all', name: 'Nearby' },
-    { id: 'quick', name: 'Quick (<20m)' },
+    { id: 'quick', name: 'Quick' },
     { id: 'highest_pay', name: 'Highest pay' },
     { id: 'no_tools', name: 'No tools' },
     { id: 'verify', name: 'Verify' },
-    { id: 'coming_soon', name: 'Coming soon' },
     { id: 'funding', name: 'Needs funding' },
   ];
 
   return (
-    <div className="flex-1 flex flex-col max-w-md mx-auto bg-white min-h-screen border-x border-border shadow-sm pb-24 relative">
-      {/* Map Header */}
-      <div className="bg-white border-b border-border py-4 px-4 sticky top-[38px] z-10 flex justify-between items-center">
+    <main className="mx-auto min-h-[calc(100vh-76px)] max-w-md border-x border-[#e2e5de] bg-white pb-24 shadow-sm">
+      <div className="sticky top-[73px] z-10 flex items-center justify-between border-b border-[#e2e5de] bg-white px-4 py-4">
         <div className="flex items-center gap-2">
-          <Menu size={16} className="text-[#666]" />
-          <span className="text-xs font-extrabold text-foreground font-heading">Downtown LA Map</span>
-          <span className="bg-[#e8f5e9] text-[#1b4332] text-[10px] px-2 py-0.5 rounded-full font-bold">
-            {visibleTasks.length} tasks
-          </span>
+          <Map size={16} className="text-[#667067]" />
+          <span className="text-xs font-black">Downtown LA Map</span>
+          <span className="rounded-full bg-[#e4f3df] px-2 py-0.5 text-[10px] font-black text-[#197243]">{tasks.length} tasks · ${availableToday.toFixed(0)}</span>
         </div>
-        <Link href="/worker/report" className="text-muted hover:text-foreground">
+        <Link href="/worker/report" className="text-[#667067] hover:text-[#101814]">
           <Plus size={18} />
         </Link>
       </div>
 
-      {/* Filter Chips Scrollbar */}
-      <div className="flex gap-2 overflow-x-auto px-4 py-2.5 bg-slate-50 border-b border-border scrollbar-none shrink-0">
-        {filters.map((f) => (
+      <div className="flex gap-2 overflow-x-auto border-b border-[#e2e5de] bg-[#f7f8f4] px-4 py-3">
+        {filters.map((filter) => (
           <button
-            key={f.id}
-            onClick={() => handleFilterChange(f.id)}
-            className={`px-3 py-1.5 rounded-full text-[10px] font-bold whitespace-nowrap transition-all border cursor-pointer ${
-              activeFilter === f.id
-                ? 'bg-primary text-white border-primary'
-                : 'bg-white border-border text-muted hover:border-slate-300'
+            key={filter.id}
+            type="button"
+            onClick={() => onFilterChange(filter.id)}
+            className={`whitespace-nowrap rounded-full border px-3 py-1.5 text-[10px] font-black ${
+              activeFilter === filter.id ? 'border-[#197243] bg-[#197243] text-white' : 'border-[#e2e5de] bg-white text-[#667067]'
             }`}
           >
-            {f.name}
+            {filter.name}
           </button>
         ))}
       </div>
 
-      {/* Interactive Map Area */}
-      <div className="flex-1 bg-[#f4f3ed] relative overflow-hidden min-h-[300px]">
-        {/* Streets Pattern Mockup */}
-        <svg className="absolute inset-0 w-full h-full opacity-[0.25]" xmlns="http://www.w3.org/2000/svg">
-          {/* Main vertical streets */}
-          <line x1="20%" y1="0%" x2="20%" y2="100%" stroke="#ffffff" strokeWidth="12" />
-          <line x1="50%" y1="0%" x2="50%" y2="100%" stroke="#ffffff" strokeWidth="16" />
-          <line x1="80%" y1="0%" x2="80%" y2="100%" stroke="#ffffff" strokeWidth="12" />
-          {/* Main horizontal corridors */}
-          <line x1="0%" y1="25%" x2="100%" y2="25%" stroke="#ffffff" strokeWidth="16" />
-          <line x1="0%" y1="65%" x2="100%" y2="65%" stroke="#ffffff" strokeWidth="12" />
-          <line x1="0%" y1="85%" x2="100%" y2="85%" stroke="#ffffff" strokeWidth="10" />
-        </svg>
-
-        {/* Depots: Spring Street Depot (fixed coordinates) */}
-        <div 
-          className="absolute group cursor-pointer"
-          style={{ left: '42%', top: '35%' }}
-          onClick={() => alert('Spring Street Depot: Open until 5 PM. Pick up cleanup kits here.')}
-        >
-          <div className="w-6 h-6 rounded-lg bg-orange-600 border border-white text-white flex items-center justify-center font-bold text-[9px] shadow-md">
-            D
-          </div>
-          <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 hidden group-hover:block bg-black text-white text-[9px] px-1.5 py-0.5 rounded whitespace-nowrap z-50">
-            Spring St Depot
-          </span>
+      <div className="relative min-h-[430px] overflow-hidden bg-[#f1f2ec]">
+        <div className="absolute inset-0 desktop-map-texture opacity-80" />
+        <div className="absolute inset-8 rounded-[2rem] border-2 border-[#197243]/20 bg-[#197243]/5" />
+        <div className="absolute left-[45%] top-[55%] flex -translate-x-1/2 -translate-y-1/2 items-center justify-center">
+          <div className="z-10 h-4 w-4 rounded-full border-2 border-white bg-blue-500 shadow-md" />
+          <div className="absolute h-10 w-10 animate-ping rounded-full bg-blue-400/30" />
         </div>
 
-        {/* Campaign Broadway boundary polygon mockup */}
-        <div className="absolute inset-0 pointer-events-none opacity-20 bg-emerald-500/10 border-2 border-emerald-500/30 m-8 rounded-[2rem]" />
+        {tasks.map((task) => {
+          const { x, y } = getCoordinates(task.location.lat, task.location.lng);
+          const selected = selectedTask?.id === task.id;
+          const color = pinColor(task.status);
 
-        {/* User Location Dot (Downtown LA) */}
-        <div className="absolute left-[45%] top-[55%] -translate-x-1/2 -translate-y-1/2 flex items-center justify-center">
-          <div className="w-3.5 h-3.5 rounded-full bg-blue-500 border-2 border-white shadow-md z-10" />
-          <div className="w-8 h-8 rounded-full bg-blue-400/30 absolute animate-ping pointer-events-none" />
-        </div>
-
-        {/* Task pins */}
-        {loading ? (
-          <div className="absolute inset-0 flex items-center justify-center bg-white/50">
-            <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin"></div>
-          </div>
-        ) : visibleTasks.length === 0 ? (
-          <div className="absolute inset-0 flex flex-col items-center justify-center p-6 text-center bg-white/60">
-            <span className="text-xs font-bold text-foreground">No tasks right here.</span>
-            <span className="text-[10px] text-muted mt-1">Try zooming out or check back later.</span>
-            <Link 
-              href="/worker/report"
-              className="mt-4 bg-[#1b4332] text-white text-[10px] font-bold px-3 py-1.5 rounded-lg"
+          return (
+            <button
+              key={task.id}
+              type="button"
+              onClick={() => onSelectTask(task)}
+              className={`absolute flex -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border-2 border-white text-white shadow-md transition ${
+                selected ? 'z-30 h-9 w-9 scale-125 ring-2 ring-white/30' : 'z-20 h-7 w-7 hover:scale-110'
+              }`}
+              style={{ left: `${x}%`, top: `${y}%`, backgroundColor: color }}
             >
-              Report a problem
-            </Link>
-          </div>
-        ) : (
-          visibleTasks.map((t) => {
-            const { x, y } = getCoordinates(t.latitude, t.longitude);
-            const isSelected = selectedTask?.id === t.id;
-            
-            // Choose color based on status/type
-            let pinColor = 'bg-[#1b4332]';
-            if (t.isComingSoon) pinColor = 'bg-blue-600';
-            if (t.isFundingNeeded) pinColor = 'bg-amber-600';
-            if (t.taskType === 'verify') pinColor = 'bg-emerald-600';
-
-            return (
-              <button
-                key={t.id}
-                onClick={() => setSelectedTask(t)}
-                className={`absolute -translate-x-1/2 -translate-y-1/2 flex items-center justify-center rounded-full border-2 border-white shadow-md transition-all cursor-pointer ${pinColor} ${
-                  isSelected ? 'w-8 h-8 scale-125 z-30 ring-2 ring-primary/40' : 'w-6 h-6 z-20 hover:scale-110'
-                }`}
-                style={{ left: `${x}%`, top: `${y}%` }}
-              >
-                <MapPin size={isSelected ? 14 : 11} className="text-white" />
-              </button>
-            );
-          })
-        )}
+              <MapPin size={selected ? 15 : 12} />
+            </button>
+          );
+        })}
       </div>
 
-      {/* Floating Selected Task Preview Card */}
       {selectedTask && (
-        <div className="absolute bottom-16 left-4 right-4 bg-white border border-border p-4 rounded-3xl shadow-xl z-40 flex items-center gap-4 transition-all animate-in slide-in-from-bottom-2">
-          {/* Visual Category Icon */}
-          <div className="w-12 h-12 rounded-2xl bg-emerald-50 text-primary flex items-center justify-center shrink-0 border border-emerald-100">
-            <MapPin size={22} className="text-[#2d6a4f]" />
+        <div className="-mt-16 mx-4 flex items-center gap-4 rounded-3xl border border-[#e2e5de] bg-white p-4 shadow-xl">
+          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-[#d7efd2] bg-[#e4f3df] text-[#197243]">
+            <MapPin size={22} />
           </div>
-
-          <div className="flex-1 flex flex-col justify-center min-w-0">
-            <div className="flex items-center gap-1.5">
-              <h3 className="text-xs font-bold text-foreground truncate font-heading leading-none">
-                {selectedTask.title}
-              </h3>
-            </div>
-            
-            <div className="flex gap-2 items-center text-[10px] text-muted mt-1.5">
-              <span>0.2 mi away</span>
-              <span>&bull;</span>
+          <div className="min-w-0 flex-1">
+            <h2 className="truncate text-sm font-black">{selectedTask.title}</h2>
+            <div className="mt-1.5 flex flex-wrap items-center gap-2 text-[10px] font-semibold text-[#667067]">
+              <span>{taskDistanceMiles(selectedTask).toFixed(1)} mi away</span>
               <span>{selectedTask.estimatedMinutes} min</span>
-              <span>&bull;</span>
-              <span className="font-semibold text-emerald-800">
-                {selectedTask.isComingSoon 
-                  ? 'Coming Soon' 
-                  : selectedTask.isFundingNeeded 
-                    ? 'Needs Sponsor' 
-                    : 'Beginner-safe'}
-              </span>
+              <span className="font-black text-[#197243]">{difficultyLabel(selectedTask)}</span>
             </div>
           </div>
-
-          {/* Right Payout Tag & Link */}
-          <div className="shrink-0 flex flex-col items-end gap-1">
-            <span className="text-sm font-black text-primary font-heading">
-              ${selectedTask.payoutAmount.toFixed(2)}
-            </span>
-            <Link
-              href={
-                selectedTask.isComingSoon || selectedTask.isFundingNeeded
-                  ? '#'
-                  : `/worker/task/${selectedTask.id}`
-              }
-              className={`text-[9px] font-bold px-2.5 py-1 rounded-lg flex items-center gap-0.5 ${
-                selectedTask.isComingSoon || selectedTask.isFundingNeeded
-                  ? 'bg-slate-100 text-slate-400 cursor-not-allowed'
-                  : 'bg-primary text-white hover:bg-primary-hover'
-              }`}
-            >
+          <div className="flex shrink-0 flex-col items-end gap-1">
+            <span className="text-base font-black text-[#197243]">${selectedTask.payoutAmount.toFixed(0)}</span>
+            <Link href={`/worker/task/${selectedTask.id}`} className="inline-flex items-center gap-1 rounded-lg bg-[#197243] px-3 py-1.5 text-[10px] font-black text-white">
               View
-              <ArrowRight size={8} />
             </Link>
           </div>
         </div>
       )}
 
+      <div className="mt-6 px-4">
+        <Link href="/worker/report" className="flex h-12 items-center justify-center gap-2 rounded-xl border border-[#e2e5de] bg-white text-xs font-black text-[#101814] shadow-sm">
+          <Search size={16} />
+          Report something nearby
+        </Link>
+      </div>
+
       <WorkerNav />
-    </div>
+    </main>
   );
 }

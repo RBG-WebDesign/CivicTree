@@ -4,6 +4,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import CivicTreeLogo from '@/components/CivicTreeLogo';
 
 export default function SignIn() {
   const router = useRouter();
@@ -101,8 +102,8 @@ export default function SignIn() {
       <div className="max-w-md w-full bg-white border border-[#e6e8e4] p-8 rounded-3xl shadow-sm flex flex-col gap-6">
         {/* Logo and Greeting */}
         <div className="text-center">
-          <Link href="/" className="text-3xl font-extrabold text-[#111] tracking-tight font-heading">
-            CivicTree
+          <Link href="/" aria-label="CivicTree home" className="inline-flex justify-center">
+            <CivicTreeLogo size="md" />
           </Link>
           <h2 className="text-xl font-bold text-[#111] font-heading mt-4">Welcome back.</h2>
           <p className="text-xs text-[#666] mt-1 font-semibold">Let’s see what needs doing today.</p>

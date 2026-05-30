@@ -95,7 +95,7 @@ export default function HowItWorks() {
         {/* CTA Stack */}
         <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
           <Link
-            href="/worker/today"
+            href="/worker/map"
             className="bg-[#1b4332] hover:bg-[#133024] text-white px-8 py-4 rounded-2xl font-extrabold transition-all shadow-md text-sm w-full sm:w-auto text-center"
           >
             Find tasks near me

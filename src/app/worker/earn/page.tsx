@@ -1,47 +1,48 @@
 // src/app/worker/earn/page.tsx
+'use client';
+
 import Link from 'next/link';
-import { cookies } from 'next/headers';
-import { prisma } from '@/lib/prisma';
 import WorkerNav from '@/components/WorkerNav';
 import CashoutButton from '@/components/CashoutButton';
-import { ShieldCheck, DollarSign, HelpCircle, ArrowUpRight, Clock, CheckCircle2, AlertTriangle } from 'lucide-react';
+import { Clock, CheckCircle2, AlertTriangle } from 'lucide-react';
+import { useDemoStore } from '@/lib/demo/store';
+import { workerBalances } from '@/lib/demo/selectors';
+import { useHydrated } from '@/lib/demo/hooks';
 
-export const revalidate = 0; // Disable cache
+export default function WorkerEarn() {
+  const hydrated = useHydrated();
 
-export default async function WorkerEarn() {
-  const cookieStore = await cookies();
-  const workerId = cookieStore.get('civictree_user_id')?.value || 'worker-austin-id';
+  const workerId = useDemoStore((s) => s.activePersona.userId);
+  const workers = useDemoStore((s) => s.workers);
+  const payments = useDemoStore((s) => s.payments);
+  const submissions = useDemoStore((s) => s.submissions);
+  const tasks = useDemoStore((s) => s.tasks);
+  const state = useDemoStore();
 
-  // Fetch payments
-  const payments = await prisma.payment.findMany({
-    where: { workerId },
-    include: {
-      submission: {
-        include: { task: true },
-      },
-    },
-    orderBy: { createdAt: 'desc' },
-  });
+  if (!hydrated) {
+    return (
+      <div className="flex-1 flex flex-col max-w-md mx-auto bg-[#faf9f5] min-h-screen border-x border-border shadow-sm pb-20">
+        <div className="bg-white border-b border-border py-4 px-4 sticky top-[38px] z-10 flex items-center justify-between">
+          <h1 className="text-sm font-bold tracking-tight text-foreground font-heading">Your Earnings</h1>
+        </div>
+        <WorkerNav />
+      </div>
+    );
+  }
 
-  // Calculate balances
-  const availableBalance = payments
-    .filter((p) => p.status === 'available' || p.status === 'paid')
-    .reduce((sum, p) => sum + p.amount, 0);
+  const worker = workers.find((w) => w.id === workerId);
+  const { available: availableBalance, pending: pendingBalance, lifetime: lifetimeEarned } = workerBalances(state, workerId);
 
-  const pendingBalance = payments
-    .filter((p) => p.status === 'pending_review')
-    .reduce((sum, p) => sum + p.amount, 0);
-
-  const lifetimeEarned = payments
-    .filter((p) => p.status !== 'rejected')
-    .reduce((sum, p) => sum + p.amount, 0);
+  const workerPayments = payments
+    .filter((p) => p.workerId === workerId)
+    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
   return (
     <div className="flex-1 flex flex-col max-w-md mx-auto bg-[#faf9f5] min-h-screen border-x border-border shadow-sm pb-20">
       {/* Top Header */}
       <div className="bg-white border-b border-border py-4 px-4 sticky top-[38px] z-10 flex items-center justify-between">
         <h1 className="text-sm font-bold tracking-tight text-foreground font-heading">Your Earnings</h1>
-        <span className="text-xs text-muted font-medium">Austin</span>
+        <span className="text-xs text-muted font-medium">{worker?.name || 'Austin'}</span>
       </div>
 
       <div className="p-5 flex flex-col gap-6">
@@ -76,20 +77,22 @@ export default async function WorkerEarn() {
         {/* Transaction History */}
         <div className="flex flex-col gap-3">
           <h3 className="text-xs font-bold uppercase tracking-wider text-muted font-heading">Work History</h3>
-          
-          {payments.length === 0 ? (
+
+          {workerPayments.length === 0 ? (
             <div className="border-2 border-dashed border-border rounded-2xl p-8 text-center text-xs text-muted bg-white">
               No tasks completed yet. Find a task on the map and do good work!
             </div>
           ) : (
             <div className="flex flex-col gap-3">
-              {payments.map((p) => {
-                const taskTitle = p.submission.task.title;
+              {workerPayments.map((p) => {
+                const submission = submissions.find((s) => s.id === p.submissionId);
+                const task = tasks.find((t) => t.id === submission?.taskId);
+                const taskTitle = task?.title ?? 'Task';
                 const dateString = new Date(p.createdAt).toLocaleDateString([], {
                   month: 'short',
                   day: 'numeric',
                 });
-                
+
                 return (
                   <div
                     key={p.id}
@@ -112,6 +115,12 @@ export default async function WorkerEarn() {
                           <span className="text-emerald-800 bg-emerald-50 px-1.5 py-0.5 rounded font-medium flex items-center gap-0.5">
                             <CheckCircle2 size={8} />
                             Approved
+                          </span>
+                        )}
+                        {p.status === 'paid' && (
+                          <span className="text-emerald-800 bg-emerald-50 px-1.5 py-0.5 rounded font-medium flex items-center gap-0.5">
+                            <CheckCircle2 size={8} />
+                            Paid
                           </span>
                         )}
                         {p.status === 'rejected' && (
