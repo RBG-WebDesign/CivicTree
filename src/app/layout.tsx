@@ -15,7 +15,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className="h-full scroll-smooth">
+    <html lang="en" className="h-full scroll-smooth" data-scroll-behavior="smooth">
       <body className="min-h-full flex flex-col bg-background text-foreground font-sans">
         <RoleSwitcher />
         <main className="flex-1 flex flex-col">

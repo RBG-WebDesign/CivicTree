@@ -6,8 +6,24 @@ import { DEMO_EPOCH } from './constants';
 const demoStamp = (seq: number) => new Date(DEMO_EPOCH + seq * 60000).toISOString();
 function nextId(prefix: string, n: number) { return `${prefix}-${n + 1}`; }
 
+function cloneDemoState(state: DemoState): DemoState {
+  return structuredClone({
+    workers: state.workers,
+    admins: state.admins,
+    sponsors: state.sponsors,
+    neighborhoods: state.neighborhoods,
+    campaigns: state.campaigns,
+    tasks: state.tasks,
+    claims: state.claims,
+    submissions: state.submissions,
+    payments: state.payments,
+    reports: state.reports,
+    activePersona: state.activePersona,
+  });
+}
+
 export function claimTask(state: DemoState, taskId: string, workerId: string): DemoState {
-  const s = structuredClone(state);
+  const s = cloneDemoState(state);
   const task = s.tasks.find((t) => t.id === taskId);
   if (!task || task.status !== 'open') return s;
   task.status = 'claimed';
@@ -21,7 +37,7 @@ export function claimTask(state: DemoState, taskId: string, workerId: string): D
 }
 
 export function checkInTask(state: DemoState, claimId: string, coords: LatLng): DemoState {
-  const s = structuredClone(state);
+  const s = cloneDemoState(state);
   const claim = s.claims.find((c) => c.id === claimId);
   if (!claim) return s;
   claim.status = 'in_progress';
@@ -36,7 +52,7 @@ export function submitProof(
   state: DemoState, claimId: string,
   proof: { beforePhoto: string; afterPhoto: string; notes: string },
 ): DemoState {
-  const s = structuredClone(state);
+  const s = cloneDemoState(state);
   const claim = s.claims.find((c) => c.id === claimId);
   if (!claim) return s;
   const task = s.tasks.find((t) => t.id === claim.taskId);
@@ -64,7 +80,7 @@ export function reviewSubmission(
   decision: 'approve' | 'reject',
   opts: { reason?: string; approvedAmount?: number } = {},
 ): DemoState {
-  const s = structuredClone(state);
+  const s = cloneDemoState(state);
   const sub = s.submissions.find((x) => x.id === submissionId);
   if (!sub) return s;
   const task = s.tasks.find((t) => t.id === sub.taskId);
@@ -106,7 +122,7 @@ export function reviewSubmission(
 }
 
 export function cashOut(state: DemoState, workerId: string): DemoState {
-  const s = structuredClone(state);
+  const s = cloneDemoState(state);
   s.payments
     .filter((p) => p.workerId === workerId && p.status === 'available')
     .forEach((p) => { p.status = 'paid'; });
@@ -117,7 +133,7 @@ export function createReport(
   state: DemoState,
   payload: { userId: string; category: string; note: string; location: LatLng; photoUrl: string },
 ): DemoState {
-  const s = structuredClone(state);
+  const s = cloneDemoState(state);
   s.reports.push({
     id: nextId('report', s.reports.length),
     userId: payload.userId, photoUrl: payload.photoUrl, location: payload.location,
@@ -129,7 +145,7 @@ export function createReport(
 export function createTask(state: DemoState, payload: Partial<DemoState['tasks'][number]> & {
   title: string; description: string; payoutAmount: number; estimatedMinutes: number;
 }): DemoState {
-  const s = structuredClone(state);
+  const s = cloneDemoState(state);
   s.tasks.push({
     id: nextId('task-custom', s.tasks.length),
     title: payload.title, description: payload.description, status: 'open',
@@ -151,7 +167,7 @@ export function promoteReportToTask(
   state: DemoState, reportId: string,
   payload: { title: string; description: string; payoutAmount: number; estimatedMinutes: number },
 ): DemoState {
-  let s = structuredClone(state);
+  let s = cloneDemoState(state);
   const report = s.reports.find((r) => r.id === reportId);
   if (!report) return s;
   report.status = 'approved_paid';
