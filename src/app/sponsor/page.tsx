@@ -1,10 +1,39 @@
+'use client';
+
 // src/app/sponsor/page.tsx
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import Link from 'next/link';
-import { DollarSign, BarChart3, Image as ImageIcon, MapPin, Download } from 'lucide-react';
+import { Image as ImageIcon, MapPin, Sparkles, WalletCards } from 'lucide-react';
+import { useHydrated } from '@/lib/demo/hooks';
+import { useDemoStore } from '@/lib/demo/store';
+import { campaignProgress } from '@/lib/demo/selectors';
+
+const money = new Intl.NumberFormat('en-US', {
+  style: 'currency',
+  currency: 'USD',
+  maximumFractionDigits: 0,
+});
 
 export default function Sponsor() {
+  const hydrated = useHydrated();
+  const state = useDemoStore((s) => s);
+  const campaign = state.campaigns.find((c) => c.id === 'campaign-broadway');
+  const downtown = state.neighborhoods.find((n) => n.id === 'downtown');
+  const progress = hydrated ? campaignProgress(state, 'campaign-broadway') : 42;
+  const completedGoal = hydrated ? campaign?.completedGoal ?? 0 : 42;
+  const remainingBudget = hydrated ? campaign?.remainingBudget ?? 0 : 3160;
+  const paidTotal = hydrated ? downtown?.paidTotal ?? 0 : 4200;
+  const blocksImproved = hydrated ? downtown?.blocksImproved ?? 0 : 18;
+  const approvedProofs = state.submissions
+    .filter((s) => s.status === 'approved')
+    .slice(-3)
+    .reverse()
+    .map((submission) => ({
+      submission,
+      task: state.tasks.find((task) => task.id === submission.taskId),
+    }));
+
   const options = [
     'Sponsor a block',
     'Fund a cleanup day',
@@ -23,10 +52,10 @@ export default function Sponsor() {
   ];
 
   const dashboardItems = [
-    { title: 'Budget remaining', value: '$1,240', desc: 'Real-time tracking of sponsored funds.' },
-    { title: 'Tasks completed', value: '42 completed', desc: 'Verifiable physical tasks completed.' },
-    { title: 'Paid to workers', value: '$1,840 paid', desc: 'Economic support routed directly locally.' },
-    { title: 'Blocks improved', value: '8 blocks', desc: 'Cleaned and cleared corridors.' },
+    { title: 'Demo budget remaining', value: money.format(remainingBudget), desc: 'Live funding pool for this simulated campaign.' },
+    { title: 'Tasks completed', value: `${completedGoal} completed`, desc: 'Verified physical tasks completed in the demo loop.' },
+    { title: 'Demo payouts tracked', value: `${money.format(paidTotal)} paid`, desc: 'Simulated local earnings routed through CivicTree.' },
+    { title: 'Blocks improved', value: `${blocksImproved} blocks`, desc: 'Cleaned and cared-for corridors.' },
   ];
 
   return (
@@ -91,7 +120,6 @@ export default function Sponsor() {
             </p>
           </div>
 
-          {/* Dummy Dashboard Card */}
           <div className="bg-white border border-[#e6e8e4] rounded-2xl p-6 grid grid-cols-2 md:grid-cols-4 gap-6">
             {dashboardItems.map((item, idx) => (
               <div key={idx} className="flex flex-col gap-1">
@@ -102,12 +130,61 @@ export default function Sponsor() {
             ))}
           </div>
 
+          <div className="bg-white border border-[#e6e8e4] rounded-2xl p-5 flex flex-col gap-5">
+            <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+              <div>
+                <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-wider text-[#1b4332]">
+                  <Sparkles size={14} />
+                  Live demo impact
+                </div>
+                <h4 className="mt-2 font-heading text-lg font-extrabold text-[#111]">
+                  {campaign?.title ?? 'Broadway Block Reset'}
+                </h4>
+                <p className="mt-1 text-xs leading-relaxed text-[#555]">
+                  The funding pool, approvals, and proof thumbnails update as the demo loop runs.
+                </p>
+              </div>
+              <div className="text-left md:text-right">
+                <div className="font-heading text-3xl font-black text-[#1b4332]">{progress}%</div>
+                <div className="text-[10px] font-bold uppercase tracking-wider text-[#777]">campaign complete</div>
+              </div>
+            </div>
+
+            <div className="h-3 w-full overflow-hidden rounded-full bg-[#edf1ec]">
+              <div
+                className="h-full rounded-full bg-[#2d6a4f] transition-all"
+                style={{ width: `${Math.min(100, progress)}%` }}
+                aria-label={`${progress}% campaign complete`}
+              />
+            </div>
+
+            <div className="grid gap-3 md:grid-cols-3">
+              {approvedProofs.map(({ submission, task }) => (
+                <div key={submission.id} className="overflow-hidden rounded-xl border border-[#e6e8e4] bg-[#faf9f5]">
+                  <img
+                    src={submission.afterPhoto}
+                    alt={`Approved proof for ${task?.title ?? 'demo task'}`}
+                    className="h-24 w-full object-cover"
+                  />
+                  <div className="p-3">
+                    <div className="line-clamp-1 text-xs font-extrabold text-[#111]">{task?.title ?? 'Approved task'}</div>
+                    <div className="mt-1 text-[10px] font-semibold uppercase tracking-wider text-[#2d6a4f]">Approved proof</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
           <div className="flex flex-col sm:flex-row gap-4 border-t border-[#e6e8e4] pt-6 items-center justify-between text-xs text-[#666]">
             <div className="flex gap-2 items-center">
               <span className="inline-block w-2.5 h-2.5 rounded-full bg-emerald-400"></span>
-              <span className="font-bold text-[#111]">“You fund the outcome. CivicTree manages the task flow.”</span>
+              <span className="font-bold text-[#111]">You fund the outcome. CivicTree manages the task flow.</span>
             </div>
-            <div className="flex gap-4">
+            <div className="flex flex-wrap gap-4">
+              <span className="flex items-center gap-1 font-semibold text-[#1b4332]">
+                <WalletCards size={12} />
+                Demo payout ledger
+              </span>
               <span className="flex items-center gap-1 font-semibold text-[#1b4332]">
                 <ImageIcon size={12} />
                 Before/after photo audit

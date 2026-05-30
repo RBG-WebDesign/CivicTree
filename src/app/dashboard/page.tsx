@@ -2,6 +2,11 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
+import { useHydrated } from '@/lib/demo/hooks';
+import { campaignProgress, neighborhoodImpact } from '@/lib/demo/selectors';
+import { createSeedState } from '@/lib/demo/seed';
+import { useDemoStore } from '@/lib/demo/store';
+import type { Campaign, DemoState, Neighborhood as DemoNeighborhood } from '@/lib/demo/types';
 import {
   MapPin, TrendingUp, Users, DollarSign, Activity,
   CheckSquare, Award, ArrowRight, Flag, Target,
@@ -53,6 +58,69 @@ const NEIGHBORHOODS: Neighborhood[] = [
   { id: 'boyle-heights', name: 'Boyle Heights', shortName: 'Boyle Heights', col: 5, row: 3, level: 2, state: 'active', progress: 31, tasksCompleted: 76, dollarsPaid: 1890, blocksImproved: 4, openTasks: 11, reports: 6, campaign: null, topCrew: 'Soto Street Crew', sponsor: 'Eastside Community', description: 'Strong local crew with community backing. Approaching the midpoint to Level 3.' },
   { id: 'south-la', name: 'South LA', shortName: 'South LA', col: 2, row: 4, level: 1, state: 'needs-care', progress: 5, tasksCompleted: 8, dollarsPaid: 190, blocksImproved: 0, openTasks: 24, reports: 18, campaign: 'South LA Restore', topCrew: null, sponsor: null, description: 'Highest-need area in the system. South LA Restore campaign is live but needs sponsor funding.' },
 ];
+
+const NEIGHBORHOOD_STATE_BY_LABEL: Record<string, NeighborhoodState> = {
+  'Needs Care': 'needs-care',
+  Active: 'active',
+  Improving: 'improving',
+  Thriving: 'thriving',
+  'Fully Stewarded': 'fully-stewarded',
+};
+
+const DEFAULT_STATE_PROGRESS: Record<NeighborhoodState, number> = {
+  'needs-care': 12,
+  active: 35,
+  improving: 58,
+  thriving: 82,
+  'fully-stewarded': 95,
+};
+
+function formatShortName(name: string) {
+  if (name === 'Koreatown') return 'K-Town';
+  return name.length > 12 ? name.split(' ')[0] : name;
+}
+
+function normalizeNeighborhoodState(state: string): NeighborhoodState {
+  return NEIGHBORHOOD_STATE_BY_LABEL[state] ?? 'active';
+}
+
+function findNeighborhoodCampaign(state: DemoState, neighborhoodId: string): Campaign | null {
+  const campaignId = state.tasks.find(task => task.neighborhoodId === neighborhoodId && task.campaignId)?.campaignId;
+  return state.campaigns.find(campaign => campaign.id === campaignId) ?? null;
+}
+
+function buildNeighborhoodTile(base: Neighborhood, demoNeighborhood: DemoNeighborhood | undefined, state: DemoState): Neighborhood {
+  if (!demoNeighborhood) return base;
+
+  const liveState = normalizeNeighborhoodState(demoNeighborhood.state);
+  const campaign = findNeighborhoodCampaign(state, demoNeighborhood.id);
+  const sponsor = campaign
+    ? state.sponsors.find(item => item.campaignIds.includes(campaign.id))?.name ?? base.sponsor
+    : base.sponsor;
+  const openTasks = state.tasks.filter(task => task.neighborhoodId === demoNeighborhood.id && task.status === 'open').length;
+  const progress = campaign
+    ? campaignProgress(state, campaign.id)
+    : Math.min(95, Math.max(DEFAULT_STATE_PROGRESS[liveState], demoNeighborhood.level * 18 + demoNeighborhood.blocksImproved));
+
+  return {
+    ...base,
+    name: demoNeighborhood.name,
+    shortName: formatShortName(demoNeighborhood.name),
+    level: demoNeighborhood.level,
+    state: liveState,
+    progress,
+    tasksCompleted: demoNeighborhood.tasksCompleted,
+    dollarsPaid: demoNeighborhood.paidTotal,
+    blocksImproved: demoNeighborhood.blocksImproved,
+    openTasks,
+    reports: demoNeighborhood.openReports,
+    campaign: campaign?.title ?? base.campaign,
+    sponsor,
+    description: campaign
+      ? `${campaign.title} is active here with ${campaign.completedGoal} of ${campaign.targetGoal} goals complete.`
+      : base.description,
+  };
+}
 
 const STATE_CONFIG: Record<NeighborhoodState, { label: string; accent: string; bg: string; border: string; text: string; glow: string }> = {
   'needs-care':      { label: 'Needs Care',      accent: '#f87171', bg: 'rgba(239,68,68,0.13)',   border: 'rgba(239,68,68,0.35)',   text: '#fca5a5', glow: 'rgba(239,68,68,0.25)' },
@@ -123,16 +191,41 @@ const NAV_LINKS = [
 // ─── Component ──────────────────────────────────────────────────────────────
 
 export default function DashboardPage() {
-  const [selected, setSelected]     = useState<Neighborhood | null>(null);
+  const hydrated = useHydrated();
+  const demoState = useDemoStore();
+  const [seedState] = useState(() => createSeedState());
+  const displayState = hydrated ? demoState : seedState;
+  const [selectedId, setSelectedId] = useState<string | null>(null);
   const [rightTab, setRightTab]     = useState<RightTab>('overview');
+  const demoNeighborhoods = neighborhoodImpact(displayState);
+  const neighborhoods = NEIGHBORHOODS.map(base =>
+    buildNeighborhoodTile(base, demoNeighborhoods.find(n => n.id === base.id), displayState),
+  );
+  const selected = neighborhoods.find(n => n.id === selectedId) ?? null;
 
   const handleTileClick = (n: Neighborhood) => {
-    setSelected(prev => prev?.id === n.id ? null : n);
+    setSelectedId(prev => prev === n.id ? null : n.id);
   };
 
-  const needsCare = NEIGHBORHOODS.filter(n => n.state === 'needs-care');
-  const totalOpenTasks = NEIGHBORHOODS.reduce((s, n) => s + n.openTasks, 0);
-  const totalReports   = NEIGHBORHOODS.reduce((s, n) => s + n.reports, 0);
+  const openTaskCount = displayState.tasks.filter(task => task.status === 'open').length;
+  const submittedTaskCount = displayState.tasks.filter(task => task.status === 'submitted').length;
+  const pendingPaymentTotal = displayState.payments
+    .filter(payment => payment.status === 'pending_review')
+    .reduce((sum, payment) => sum + payment.amount, 0);
+  const reportCount = displayState.reports.length;
+  const pendingReviewCount = displayState.submissions.filter(submission => submission.status === 'submitted').length;
+  const totalBlocksImproved = demoNeighborhoods.reduce((s, n) => s + n.blocksImproved, 0);
+  const needsCare = neighborhoods.filter(n => n.state === 'needs-care');
+  const totalOpenTasks = openTaskCount;
+  const totalReports   = demoNeighborhoods.reduce((s, n) => s + n.openReports, 0) || reportCount;
+  const topStats = [
+    { label: 'Open tasks',       value: openTaskCount.toString(),           icon: CheckSquare, color: '#22c55e' },
+    { label: 'Pending payout',   value: `$${pendingPaymentTotal}`,          icon: DollarSign,  color: '#34d399' },
+    { label: 'Blocks improved',  value: totalBlocksImproved.toString(),     icon: TrendingUp,  color: '#60a5fa' },
+    { label: 'Open reports',     value: reportCount.toString(),             icon: Activity,    color: '#f87171' },
+    { label: 'Reviews pending',  value: pendingReviewCount.toString(),      icon: Eye,         color: '#fbbf24' },
+    { label: 'Submitted tasks',  value: submittedTaskCount.toString(),      icon: Users,       color: '#c4b5fd' },
+  ];
 
   return (
     <div className="dashboard-root flex min-h-screen overflow-hidden" style={{ background: '#0c1118', color: '#e6edf3', fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
@@ -197,16 +290,9 @@ export default function DashboardPage() {
         <header className="shrink-0 flex items-center gap-4 px-6 py-3 border-b" style={{ background: '#10181f', borderColor: 'rgba(255,255,255,0.07)' }}>
           <div className="flex items-center gap-1.5 mr-2">
             <span className="inline-block w-1.5 h-1.5 rounded-full animate-pulse" style={{ background: '#22c55e' }} />
-            <span className="text-[11px] font-bold" style={{ color: '#22c55e' }}>Live</span>
+            <span className="text-[11px] font-bold" style={{ color: '#22c55e' }}>{hydrated ? 'Live' : 'Loading'}</span>
           </div>
-          {[
-            { label: 'Tasks today',       value: '34',      icon: CheckSquare, color: '#22c55e' },
-            { label: 'Paid out today',    value: '$847',    icon: DollarSign,  color: '#34d399' },
-            { label: 'Blocks improved',   value: '7',       icon: TrendingUp,  color: '#60a5fa' },
-            { label: 'Reports waiting',   value: '23',      icon: Activity,    color: '#f87171' },
-            { label: 'Reviews pending',   value: '6',       icon: Eye,         color: '#fbbf24' },
-            { label: 'Active workers',    value: '18',      icon: Users,       color: '#c4b5fd' },
-          ].map(({ label, value, icon: Icon, color }) => (
+          {topStats.map(({ label, value, icon: Icon, color }) => (
             <div key={label} className="flex items-center gap-2 px-4 py-1.5 rounded-lg border" style={{ borderColor: 'rgba(255,255,255,0.08)', background: 'rgba(255,255,255,0.03)' }}>
               <Icon size={13} style={{ color }} />
               <div>
@@ -272,7 +358,7 @@ export default function DashboardPage() {
               })}
 
               {/* Neighborhood tiles */}
-              {NEIGHBORHOODS.map(n => {
+              {neighborhoods.map(n => {
                 const cfg = STATE_CONFIG[n.state];
                 const isSelected = selected?.id === n.id;
                 const isPulsing  = n.state === 'needs-care';
@@ -377,7 +463,7 @@ export default function DashboardPage() {
                         {selected.name}
                       </h2>
                     </div>
-                    <button onClick={() => setSelected(null)} className="p-1 rounded-lg transition-colors hover:bg-white/5" style={{ color: '#4a6278' }}>
+                    <button onClick={() => setSelectedId(null)} className="p-1 rounded-lg transition-colors hover:bg-white/5" style={{ color: '#4a6278' }}>
                       <X size={16} />
                     </button>
                   </div>
@@ -548,7 +634,7 @@ export default function DashboardPage() {
                         {needsCare.map(n => (
                           <button
                             key={n.id}
-                            onClick={() => setSelected(n)}
+                            onClick={() => setSelectedId(n.id)}
                             className="w-full flex items-center justify-between px-3 py-2.5 rounded-xl mb-1.5 text-left transition-all hover:bg-white/5"
                             style={{ border: '1px solid rgba(239,68,68,0.25)', background: 'rgba(239,68,68,0.06)' }}
                           >
@@ -563,13 +649,13 @@ export default function DashboardPage() {
 
                       <div>
                         <p className="text-[9px] font-black uppercase tracking-widest mb-2" style={{ color: '#4a6278' }}>Highest performing</p>
-                        {NEIGHBORHOODS
+                        {[...neighborhoods]
                           .sort((a, b) => b.tasksCompleted - a.tasksCompleted)
                           .slice(0, 3)
                           .map(n => (
                             <button
                               key={n.id}
-                              onClick={() => setSelected(n)}
+                              onClick={() => setSelectedId(n.id)}
                               className="w-full flex items-center justify-between px-3 py-2.5 rounded-xl mb-1.5 text-left transition-all hover:bg-white/5"
                               style={{ border: '1px solid rgba(255,255,255,0.07)', background: 'rgba(255,255,255,0.03)' }}
                             >
