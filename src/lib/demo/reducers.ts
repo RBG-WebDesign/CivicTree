@@ -1,10 +1,31 @@
 import type {
   DemoState, LatLng, Claim, Submission, Payment,
 } from './types';
-import { DEMO_EPOCH } from './constants';
+import {
+  ALLEY_AFTER_IMAGE,
+  ALLEY_BEFORE_IMAGE,
+  DEMO_EPOCH,
+  PLACEHOLDER_TASK_IMAGE,
+} from './constants';
 
 const demoStamp = (seq: number) => new Date(DEMO_EPOCH + seq * 60000).toISOString();
 function nextId(prefix: string, n: number) { return `${prefix}-${n + 1}`; }
+
+const LIVE_TASK_TITLES = [
+  'Trash building up near transit stop',
+  'Sticker cleanup on utility poles',
+  'Overflow litter near park entrance',
+  'Planter needs watering and sweep',
+  'Broken glass reported by storefront',
+  'Alley cleanup behind restaurant row',
+];
+
+const LIVE_REPORTS = [
+  { category: 'litter', note: 'Resident reported loose trash spreading into the crosswalk.' },
+  { category: 'graffiti', note: 'Storefront tag needs a quick verification before dispatch.' },
+  { category: 'planter', note: 'Sponsor planter looks dry and needs a maintenance check.' },
+  { category: 'safety', note: 'Broken glass reported near a bus stop.' },
+];
 
 function cloneDemoState(state: DemoState): DemoState {
   return structuredClone({
@@ -174,6 +195,110 @@ export function promoteReportToTask(
   s = createTask(s, {
     ...payload, location: report.location, reportedByUserId: report.userId,
     neighborhoodId: 'downtown',
+  });
+  return s;
+}
+
+export function simulateOpsEvent(state: DemoState): DemoState {
+  const s = cloneDemoState(state);
+  const seq = s.reports.length + s.tasks.length + s.submissions.length;
+  const neighborhood = s.neighborhoods[seq % s.neighborhoods.length];
+  const worker = s.workers.filter((item) => item.role === 'worker')[seq % Math.max(1, s.workers.length)];
+
+  if (seq % 3 === 0) {
+    const report = LIVE_REPORTS[seq % LIVE_REPORTS.length];
+    s.reports.push({
+      id: nextId('report-live', s.reports.length),
+      userId: 'resident-live-demo',
+      photoUrl: PLACEHOLDER_TASK_IMAGE,
+      location: { lat: 34.0456 + (seq % 7) * 0.001, lng: -118.2505 - (seq % 5) * 0.001 },
+      category: report.category,
+      note: report.note,
+      status: 'pending',
+      createdAt: demoStamp(s.reports.length),
+    });
+    if (neighborhood) neighborhood.openReports += 1;
+    return s;
+  }
+
+  if (seq % 3 === 1) {
+    const title = LIVE_TASK_TITLES[seq % LIVE_TASK_TITLES.length];
+    s.tasks.push({
+      id: nextId('task-live', s.tasks.length),
+      title,
+      description: 'Live demo task generated from incoming resident and sponsor activity.',
+      status: 'open',
+      payoutAmount: 14 + (seq % 5) * 4,
+      estimatedMinutes: 12 + (seq % 4) * 8,
+      requiredTools: ['gloves', 'trash bag'],
+      safetyNotes: 'Stay visible, avoid traffic, and do not handle hazardous material.',
+      doList: ['Photograph the full site before starting', 'Clear visible loose debris', 'Sweep the immediate area', 'Capture the same-angle after photo'],
+      dontList: ['Do not enter private property', 'Do not handle needles or chemicals'],
+      location: { lat: 34.0456 + (seq % 6) * 0.001, lng: -118.2505 - (seq % 6) * 0.001 },
+      taskType: 'cleanup',
+      neighborhoodId: neighborhood?.id ?? 'downtown',
+      campaignId: seq % 2 === 0 ? 'campaign-broadway' : null,
+      isFundingNeeded: false,
+      isComingSoon: false,
+      reportedByUserId: null,
+    });
+    return s;
+  }
+
+  const title = LIVE_TASK_TITLES[seq % LIVE_TASK_TITLES.length];
+  const taskId = nextId('task-live', s.tasks.length);
+  const workerId = worker?.id ?? 'worker-austin-id';
+  const claimId = nextId('claim-live', s.claims.length);
+  const submissionId = nextId('sub-live', s.submissions.length);
+  const payoutAmount = 18 + (seq % 4) * 5;
+  s.tasks.push({
+    id: taskId,
+    title,
+    description: 'Worker completed this live demo job and sent proof to admin review.',
+    status: 'submitted',
+    payoutAmount,
+    estimatedMinutes: 15 + (seq % 4) * 5,
+    requiredTools: ['gloves', 'trash bag'],
+    safetyNotes: 'Stay visible and avoid traffic.',
+    doList: ['Before photo captured', 'Cleanup completed', 'After photo captured'],
+    dontList: ['Do not enter private property'],
+    location: { lat: 34.0456 + (seq % 6) * 0.001, lng: -118.2505 - (seq % 6) * 0.001 },
+    taskType: 'cleanup',
+    neighborhoodId: neighborhood?.id ?? 'downtown',
+    campaignId: seq % 2 === 0 ? 'campaign-broadway' : null,
+    isFundingNeeded: false,
+    isComingSoon: false,
+    reportedByUserId: null,
+  });
+  s.claims.push({
+    id: claimId,
+    taskId,
+    workerId,
+    status: 'submitted',
+    claimedAt: demoStamp(s.claims.length),
+    startedAt: demoStamp(s.claims.length + 1),
+    completedAt: null,
+    gpsCheckin: { lat: 34.0456 + (seq % 6) * 0.001, lng: -118.2505 - (seq % 6) * 0.001 },
+  });
+  s.submissions.push({
+    id: submissionId,
+    taskId,
+    workerId,
+    claimId,
+    beforePhoto: ALLEY_BEFORE_IMAGE,
+    afterPhoto: ALLEY_AFTER_IMAGE,
+    notes: 'Live sim: before photo, checklist, GPS, and after photo captured.',
+    status: 'submitted',
+    submittedAt: demoStamp(s.submissions.length),
+    reviewReason: null,
+  });
+  s.payments.push({
+    id: nextId('pay-live', s.payments.length),
+    workerId,
+    submissionId,
+    amount: payoutAmount,
+    status: 'pending_review',
+    createdAt: demoStamp(s.payments.length),
   });
   return s;
 }

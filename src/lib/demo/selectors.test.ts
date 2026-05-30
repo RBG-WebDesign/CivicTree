@@ -8,10 +8,10 @@ import { DEMO_USER_LOCATION } from './constants';
 describe('selectors', () => {
   it('computes Austin balances from seed', () => {
     const b = workerBalances(createSeedState(), 'worker-austin-id');
-    expect(b.available).toBe(24); // available to cash out (excludes already paid)
-    expect(b.paid).toBe(12);
-    expect(b.pending).toBe(18);
-    expect(b.lifetime).toBe(54); // available + paid + pending
+    expect(b.available).toBe(32); // available to cash out (excludes already paid)
+    expect(b.paid).toBe(20);
+    expect(b.pending).toBe(28);
+    expect(b.lifetime).toBe(80); // available + paid + pending
   });
   it('computes campaign progress percent', () => {
     expect(campaignProgress(createSeedState(), 'campaign-broadway')).toBe(42);
@@ -30,5 +30,10 @@ describe('selectors', () => {
     const s = createSeedState();
     const quick = filterTasks(s.tasks, 'quick');
     expect(quick.every((t) => t.status === 'open' && t.estimatedMinutes <= 20)).toBe(true);
+  });
+  it('filterTasks "highest_pay" keeps substantial payouts', () => {
+    const highPay = filterTasks(createSeedState().tasks, 'highest_pay');
+    expect(highPay.length).toBeGreaterThan(0);
+    expect(highPay.every((t) => t.status === 'open' && t.payoutAmount >= 40)).toBe(true);
   });
 });

@@ -1,8 +1,8 @@
-// src/components/Header.tsx
 'use client';
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import CivicTreeLogo from './CivicTreeLogo';
 
 export default function Header() {
   const [role, setRole] = useState<string>('worker');
@@ -20,8 +20,8 @@ export default function Header() {
   return (
     <header className="bg-white px-6 md:px-12 py-5 flex items-center justify-between max-w-7xl mx-auto w-full border-b border-[#eae8e2]/40">
       {/* Brand Logo */}
-      <Link href="/" className="text-2xl font-extrabold text-[#111] tracking-tight font-heading">
-        CivicTree
+      <Link href="/" className="flex items-center gap-3" aria-label="CivicTree home">
+        <CivicTreeLogo size="md" />
       </Link>
       
       {/* Navigation Links */}

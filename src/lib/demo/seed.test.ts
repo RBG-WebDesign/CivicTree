@@ -17,13 +17,13 @@ describe('createSeedState', () => {
     );
     expect(s.admins[0].id).toBe('admin-id');
   });
-  it('gives Austin $24 available, $12 paid, $18 pending in the seed', () => {
+  it('gives Austin $32 available, $20 paid, $28 pending in the seed', () => {
     const s = createSeedState();
     const ps = s.payments.filter((p) => p.workerId === 'worker-austin-id');
     const sum = (status: string) => ps.filter((p) => p.status === status).reduce((a, p) => a + p.amount, 0);
-    expect(sum('available')).toBe(24);
-    expect(sum('paid')).toBe(12);
-    expect(sum('pending_review')).toBe(18);
+    expect(sum('available')).toBe(32);
+    expect(sum('paid')).toBe(20);
+    expect(sum('pending_review')).toBe(28);
   });
   it('seeds at least 6 open tasks', () => {
     expect(createSeedState().tasks.filter((t) => t.status === 'open').length).toBeGreaterThanOrEqual(6);

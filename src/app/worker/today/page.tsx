@@ -3,7 +3,7 @@
 
 import Link from 'next/link';
 import WorkerNav from '@/components/WorkerNav';
-import { MapPin, Award, AlertCircle, ArrowRight, ShieldCheck, HelpCircle, Activity, Flame, TrendingUp } from 'lucide-react';
+import { MapPin, Award, AlertCircle, ArrowRight, ShieldCheck, HelpCircle, Activity, Flame, TrendingUp, Monitor } from 'lucide-react';
 import { useDemoStore } from '@/lib/demo/store';
 import { workerBalances, campaignProgress } from '@/lib/demo/selectors';
 import { useHydrated } from '@/lib/demo/hooks';
@@ -53,6 +53,10 @@ export default function WorkerToday() {
   // Jordan rule
   const paidTasks = workerId === 'worker-notasks-id' ? [] : allPaidTasks;
   const topPayout = paidTasks.length > 0 ? paidTasks[0].payoutAmount : 0;
+  const availableToday = paidTasks.reduce((sum, task) => sum + task.payoutAmount, 0);
+  const targetTasks = paidTasks.slice(0, 4);
+  const targetValue = targetTasks.reduce((sum, task) => sum + task.payoutAmount, 0);
+  const targetMinutes = targetTasks.reduce((sum, task) => sum + task.estimatedMinutes, 0);
 
   const pendingReportCount = reports.filter((r) => r.status === 'pending').length;
   const upcomingCareCount = tasks.filter(
@@ -65,8 +69,8 @@ export default function WorkerToday() {
 
   // Determine User State & Primary Card Details
   let primaryCard = {
-    title: 'Earn nearby',
-    desc: `${paidTasks.length} paid task${paidTasks.length === 1 ? '' : 's'} within 1 mile. Top payout $${topPayout.toFixed(0)}.`,
+    title: `Earn up to $${targetValue.toFixed(0)} nearby`,
+    desc: `${paidTasks.length} paid task${paidTasks.length === 1 ? '' : 's'} within 1 mile. A focused ${Math.max(1, Math.round(targetMinutes / 60))}-hour route can pay real money.`,
     buttonText: 'View paid tasks',
     link: '/worker/map',
     style: 'bg-[#1b4332] text-white border-[#1b4332]',
@@ -150,6 +154,10 @@ export default function WorkerToday() {
             <h1 className="text-xl font-bold font-heading">Good morning, {worker?.name || 'Austin'}.</h1>
             <p className="text-sm font-semibold text-emerald-100 mt-1">{careCount} things need care near you.</p>
             <p className="text-[10px] text-emerald-300/80 mt-0.5">Downtown Los Angeles Pilot</p>
+            <Link href="/worker/desktop" className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-emerald-950/45 px-3 py-1.5 text-[10px] font-black text-emerald-100 border border-emerald-700/40">
+              <Monitor size={12} />
+              Open desktop planner
+            </Link>
           </div>
           <div className="bg-emerald-800/50 border border-emerald-500/20 px-3 py-1 rounded-full text-[10px] flex items-center gap-1 font-bold text-emerald-100">
             <Award size={10} className="text-emerald-300" />
@@ -198,7 +206,7 @@ export default function WorkerToday() {
             Today near you
           </h3>
 
-          {/* Paid tasks near you — with empty-state alternative */}
+          {/* Paid tasks near you with empty-state alternative */}
           {paidTasks.length > 0 ? (
             <Link
               href="/worker/map"
@@ -210,7 +218,7 @@ export default function WorkerToday() {
               <div className="flex-1 min-w-0">
                 <div className="text-sm font-bold text-foreground font-heading">Paid tasks near you</div>
                 <p className="text-[11px] text-[#555] mt-0.5">
-                  {paidTasks.length} paid task{paidTasks.length === 1 ? '' : 's'} nearby. Top payout ${topPayout.toFixed(0)}.
+                  {paidTasks.length} paid task{paidTasks.length === 1 ? '' : 's'} nearby. ${availableToday.toFixed(0)} available today. Top payout ${topPayout.toFixed(0)}.
                 </p>
               </div>
               <ArrowRight size={16} className="text-muted group-hover:text-[#1b4332] shrink-0" />
@@ -251,7 +259,7 @@ export default function WorkerToday() {
               <div className="text-sm font-bold text-foreground font-heading">Report something</div>
               <p className="text-[11px] text-[#555] mt-0.5">Report something dirty, broken, or unsafe.</p>
             </div>
-            <span className="text-[11px] font-bold text-[#2d6a4f] shrink-0">Up to $3</span>
+            <span className="text-[11px] font-bold text-[#2d6a4f] shrink-0">Up to $12</span>
           </Link>
 
           {/* Verify a nearby report */}
@@ -270,7 +278,7 @@ export default function WorkerToday() {
                   : 'Check if a reported issue still exists.'}
               </p>
             </div>
-            <span className="text-[11px] font-bold text-[#2d6a4f] shrink-0">$2–3</span>
+            <span className="text-[11px] font-bold text-[#2d6a4f] shrink-0">$10 to $12</span>
           </Link>
 
           {/* Nearby campaign progress */}
@@ -303,7 +311,7 @@ export default function WorkerToday() {
             </Link>
           )}
 
-          {/* Finish safety training — prominent if incomplete, confirmation if done */}
+          {/* Finish safety training, prominent if incomplete, confirmation if done */}
           {worker && !worker.onboardingCompleted ? (
             <Link
               href="/worker/training"

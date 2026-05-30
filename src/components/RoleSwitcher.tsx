@@ -2,7 +2,7 @@
 'use client';
 
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { Shield, User as UserIcon, Layers, MapPin, Building2 } from 'lucide-react';
 import { useDemoStore } from '@/lib/demo/store';
 import { useHydrated } from '@/lib/demo/hooks';
@@ -17,6 +17,7 @@ const DEFAULT_USER_ID: Record<Role, string> = {
 
 export default function RoleSwitcher() {
   const pathname = usePathname();
+  const router = useRouter();
   const hydrated = useHydrated();
   const persona = useDemoStore((s) => s.activePersona);
   const setPersona = useDemoStore((s) => s.setPersona);
@@ -30,6 +31,9 @@ export default function RoleSwitcher() {
 
   const handlePersonaChange = (newRole: Role) => {
     setPersona(newRole, DEFAULT_USER_ID[newRole]);
+    if (newRole === 'admin') router.push('/dashboard?view=review');
+    if (newRole === 'worker') router.push('/worker/today');
+    if (newRole === 'sponsor') router.push('/sponsor');
   };
 
   return (

@@ -71,8 +71,25 @@ function taskTypeLabel(task: Task) {
 }
 
 function difficultyLabel(task: Task) {
-  if (task.payoutAmount >= 24) return 'Medium';
+  if (task.payoutAmount >= 100) return 'Team';
+  if (task.payoutAmount >= 40) return 'Medium';
   return 'Easy';
+}
+
+function activeTaskValue(tasks: Task[]) {
+  return tasks
+    .filter((task) => task.status === 'open' && !task.isComingSoon && !task.isFundingNeeded)
+    .reduce((sum, task) => sum + task.payoutAmount, 0);
+}
+
+function activeTaskMinutes(tasks: Task[]) {
+  return tasks
+    .filter((task) => task.status === 'open' && !task.isComingSoon && !task.isFundingNeeded)
+    .reduce((sum, task) => sum + task.estimatedMinutes, 0);
+}
+
+function hourlyEquivalent(task: Task) {
+  return Math.round((task.payoutAmount / task.estimatedMinutes) * 60);
 }
 
 export default function WorkerMap() {
@@ -201,6 +218,9 @@ function DesktopMapView({
   tasks: Task[];
 }) {
   const selectedIndex = selectedTask ? Math.max(tasks.findIndex((task) => task.id === selectedTask.id), 0) : 0;
+  const availableToday = activeTaskValue(tasks);
+  const minutesToday = activeTaskMinutes(tasks);
+  const hoursToday = Math.max(1, Math.round((minutesToday / 60) * 10) / 10);
 
   return (
     <main className="mx-auto max-w-[1500px] px-6 py-8 md:px-8">
@@ -208,6 +228,9 @@ function DesktopMapView({
         <div>
           <h1 className="text-4xl font-black tracking-tight text-[#070b09] md:text-5xl">Find paid tasks near you</h1>
           <p className="mt-2 text-lg font-semibold text-[#5d665f]">Real work. Real impact. Real pay.</p>
+          <p className="mt-2 text-sm font-black text-[#197243]">
+            ${availableToday.toFixed(0)} available today across about {hoursToday} active hours.
+          </p>
         </div>
 
         <div className="flex flex-col gap-3 sm:flex-row">
@@ -232,7 +255,9 @@ function DesktopMapView({
 
       <section className="grid gap-6 xl:grid-cols-[450px_1fr]">
         <aside className="min-w-0">
-          <div className="mb-3 text-sm font-semibold text-[#404a43]">{`${Math.max(tasks.length, 0)} tasks available`}</div>
+          <div className="mb-3 text-sm font-semibold text-[#404a43]">
+            {`${Math.max(tasks.length, 0)} tasks nearby · $${availableToday.toFixed(0)} available today`}
+          </div>
           <div className="grid gap-3">
             {tasks.length === 0 ? (
               <div className="rounded-xl border border-[#e1e4dc] bg-white p-6 text-center text-sm font-bold text-[#667067]">
@@ -348,7 +373,8 @@ function TaskListCard({
         </span>
         <span className="mt-3 flex gap-2">
           <span className="rounded-full bg-[#e4f3df] px-2.5 py-1 text-xs font-black text-[#197243]">{type}</span>
-          <span className={`rounded-full px-2.5 py-1 text-xs font-black ${difficulty === 'Medium' ? 'bg-[#fff0d8] text-[#a05b12]' : 'bg-[#e4f3df] text-[#197243]'}`}>{difficulty}</span>
+          <span className={`rounded-full px-2.5 py-1 text-xs font-black ${difficulty === 'Easy' ? 'bg-[#e4f3df] text-[#197243]' : 'bg-[#fff0d8] text-[#a05b12]'}`}>{difficulty}</span>
+          <span className="rounded-full bg-[#f7f1d9] px-2.5 py-1 text-xs font-black text-[#7a5c0b]">${hourlyEquivalent(task)}/hr active</span>
         </span>
       </span>
       <span className="flex flex-col items-end justify-center pr-1">
@@ -481,9 +507,10 @@ function DesktopTaskDetail({ task, index }: { task: Task; index: number }) {
 
         <p className="mt-7 max-w-2xl text-base leading-7 text-[#344139]">{task.description}</p>
 
-        <div className="mt-7 grid overflow-hidden rounded-xl border border-[#edf0e9] bg-[#fcfcfa] sm:grid-cols-3">
+        <div className="mt-7 grid overflow-hidden rounded-xl border border-[#edf0e9] bg-[#fcfcfa] sm:grid-cols-4">
           <Metric label="Estimated time" value={`${task.estimatedMinutes} min`} />
           <Metric label="Distance" value={`${taskDistanceMiles(task).toFixed(1)} mi`} />
+          <Metric label="Active rate" value={`$${hourlyEquivalent(task)}/hr`} accent />
           <Metric label="Difficulty" value={difficultyLabel(task)} accent />
         </div>
 
@@ -549,6 +576,7 @@ function MobileMapView({
   selectedTask: Task | undefined;
   tasks: Task[];
 }) {
+  const availableToday = activeTaskValue(tasks);
   const filters = [
     { id: 'all', name: 'Nearby' },
     { id: 'quick', name: 'Quick' },
@@ -564,7 +592,7 @@ function MobileMapView({
         <div className="flex items-center gap-2">
           <Map size={16} className="text-[#667067]" />
           <span className="text-xs font-black">Downtown LA Map</span>
-          <span className="rounded-full bg-[#e4f3df] px-2 py-0.5 text-[10px] font-black text-[#197243]">{tasks.length} tasks</span>
+          <span className="rounded-full bg-[#e4f3df] px-2 py-0.5 text-[10px] font-black text-[#197243]">{tasks.length} tasks · ${availableToday.toFixed(0)}</span>
         </div>
         <Link href="/worker/report" className="text-[#667067] hover:text-[#101814]">
           <Plus size={18} />

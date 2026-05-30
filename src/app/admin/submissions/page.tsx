@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { Plus, CheckSquare, DollarSign, ArrowRight, Eye, Clock, Layers } from 'lucide-react';
+import CivicTreeLogo from '@/components/CivicTreeLogo';
 import { useDemoStore } from '@/lib/demo/store';
 import { useHydrated } from '@/lib/demo/hooks';
 
@@ -14,12 +15,9 @@ export default function AdminSubmissions() {
 
   const sidebar = (
     <aside className="w-full md:w-64 bg-primary text-white shrink-0 p-6 flex flex-col gap-8">
-      <div className="flex items-center gap-2">
-        <div className="w-8 h-8 rounded-lg bg-white text-primary flex items-center justify-center font-bold text-lg font-heading">
-          C
-        </div>
-        <span className="text-xl font-bold tracking-tight font-heading">CivicTree Admin</span>
-      </div>
+      <Link href="/dashboard" aria-label="CivicTree command center" className="inline-flex">
+        <CivicTreeLogo size="sm" tone="dark" className="h-9 w-[119px]" />
+      </Link>
 
       <nav className="flex flex-col gap-1.5 text-sm font-medium">
         <Link

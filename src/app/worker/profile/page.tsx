@@ -1,45 +1,91 @@
 // src/app/worker/profile/page.tsx
+'use client';
+
 import Link from 'next/link';
-import { cookies } from 'next/headers';
-import { prisma } from '@/lib/prisma';
 import WorkerNav from '@/components/WorkerNav';
-import { Award, ShieldCheck, Heart, Landmark, Globe, HelpCircle, AlertTriangle } from 'lucide-react';
+import {
+  Award, ShieldCheck, Landmark, Globe, HelpCircle, AlertTriangle,
+  CheckCircle2, Clock, Monitor,
+} from 'lucide-react';
+import { useDemoStore } from '@/lib/demo/store';
+import { useHydrated } from '@/lib/demo/hooks';
+import { workerBalances } from '@/lib/demo/selectors';
 
-export const revalidate = 0;
+export default function WorkerProfile() {
+  const hydrated = useHydrated();
+  const workerId = useDemoStore((s) => s.activePersona.userId);
+  const workers = useDemoStore((s) => s.workers);
+  const submissions = useDemoStore((s) => s.submissions);
+  const claims = useDemoStore((s) => s.claims);
+  const state = useDemoStore();
 
-export default async function WorkerProfile() {
-  const cookieStore = await cookies();
-  const userId = cookieStore.get('civictree_user_id')?.value || 'worker-austin-id';
+  if (!hydrated) {
+    return (
+      <div className="flex-1 flex flex-col max-w-md mx-auto bg-white min-h-screen border-x border-border shadow-sm pb-24">
+        <div className="bg-white border-b border-border py-4 px-6 sticky top-[38px] z-10">
+          <div className="h-5 w-28 rounded bg-slate-100 animate-pulse" />
+        </div>
+        <div className="p-6 flex flex-col gap-4">
+          <div className="h-24 rounded-3xl bg-slate-100 animate-pulse" />
+          <div className="h-28 rounded-3xl bg-slate-100 animate-pulse" />
+        </div>
+        <WorkerNav />
+      </div>
+    );
+  }
 
-  const user = await prisma.user.findUnique({
-    where: { id: userId },
-  });
+  const worker = workers.find((item) => item.id === workerId) ?? workers[0];
+  const balances = workerBalances(state, worker?.id ?? workerId);
+  const workerSubmissions = submissions.filter((item) => item.workerId === worker?.id);
+  const pendingCount = workerSubmissions.filter((item) => item.status === 'submitted').length;
+  const approvedCount = workerSubmissions.filter((item) => item.status === 'approved').length;
+  const activeCount = claims.filter(
+    (item) => item.workerId === worker?.id && (item.status === 'claimed' || item.status === 'in_progress'),
+  ).length;
 
   const levelNames = ['Seed', 'Sprout', 'Branch', 'Grove', 'Steward', 'City Steward'];
-  const levelNum = user?.level || 1;
+  const levelNum = worker?.level || 1;
   const levelName = levelNames[Math.min(levelNum - 1, levelNames.length - 1)];
+  const progress = Math.min(92, Math.max(25, levelNum * 18 + approvedCount * 4));
+  const initial = worker?.name?.slice(0, 1) || 'A';
 
   return (
     <div className="flex-1 flex flex-col max-w-md mx-auto bg-white min-h-screen border-x border-border shadow-sm pb-24">
-      {/* Top Header */}
-      <div className="bg-white border-b border-border py-4 px-6 sticky top-[38px] z-10">
+      <div className="bg-white border-b border-border py-4 px-6 sticky top-[38px] z-10 flex items-center justify-between">
         <h1 className="text-sm font-bold tracking-tight text-foreground font-heading">Your Profile</h1>
+        <Link href="/worker/desktop" className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-3 py-1.5 text-[10px] font-black text-primary border border-emerald-100">
+          <Monitor size={12} />
+          Desktop
+        </Link>
       </div>
 
       <div className="p-6 flex flex-col gap-6">
-        {/* User Card */}
         <div className="flex items-center gap-4 bg-[#faf9f5] border border-border p-5 rounded-3xl">
           <div className="w-14 h-14 rounded-full bg-[#1b4332] text-white flex items-center justify-center font-bold text-xl font-heading shadow-md">
-            {user?.name?.slice(0, 1) || 'A'}
+            {initial}
           </div>
-          <div className="flex flex-col gap-0.5">
-            <h2 className="text-base font-extrabold text-foreground font-heading">{user?.name || 'Austin'}</h2>
-            <p className="text-xs text-muted">Neighborhood: {user?.neighborhood || 'Historic Core'}</p>
-            <p className="text-[10px] text-muted-foreground">Phone: {user?.phone || '213-555-0199'}</p>
+          <div className="flex flex-col gap-0.5 min-w-0">
+            <h2 className="text-base font-extrabold text-foreground font-heading truncate">{worker?.name || 'Austin'}</h2>
+            <p className="text-xs text-muted">Neighborhood: {worker?.neighborhoodId || 'downtown'}</p>
+            <p className="text-[10px] text-muted-foreground">Worker ID: {worker?.id || 'worker-austin-id'}</p>
           </div>
         </div>
 
-        {/* Level Card */}
+        <div className="grid grid-cols-3 gap-3">
+          <div className="border border-border p-3 rounded-2xl flex flex-col gap-1 text-center">
+            <span className="text-[9px] uppercase tracking-wider font-bold text-[#888]">Available</span>
+            <span className="text-base font-black text-[#2d6a4f] font-heading">${balances.available.toFixed(0)}</span>
+          </div>
+          <div className="border border-border p-3 rounded-2xl flex flex-col gap-1 text-center">
+            <span className="text-[9px] uppercase tracking-wider font-bold text-[#888]">Pending</span>
+            <span className="text-base font-black text-amber-700 font-heading">${balances.pending.toFixed(0)}</span>
+          </div>
+          <div className="border border-border p-3 rounded-2xl flex flex-col gap-1 text-center">
+            <span className="text-[9px] uppercase tracking-wider font-bold text-[#888]">Approved</span>
+            <span className="text-base font-black text-[#2d6a4f] font-heading">{approvedCount}</span>
+          </div>
+        </div>
+
         <div className="border border-border p-5 rounded-3xl flex flex-col gap-3">
           <div className="flex justify-between items-center">
             <div className="flex items-center gap-2">
@@ -50,36 +96,45 @@ export default async function WorkerProfile() {
               Level {levelNum}
             </span>
           </div>
-          
+
           <p className="text-xs text-[#555] leading-relaxed">
-            {levelNum === 1 
-              ? 'Complete basic training to unlock planter routes.' 
-              : 'You have unlocked planter routes and longer cleanup routes.'}
+            {worker?.onboardingCompleted
+              ? 'You have unlocked cleanup, verification, and longer route work.'
+              : 'Complete basic training to unlock more paid task types.'}
           </p>
 
           <div className="w-full bg-slate-100 h-2 rounded-full mt-1 overflow-hidden">
-            <div 
-              className="bg-primary h-full rounded-full transition-all" 
-              style={{ width: `${levelNum === 1 ? 25 : 60}%` }}
-            />
+            <div className="bg-primary h-full rounded-full transition-all" style={{ width: `${progress}%` }} />
           </div>
         </div>
 
-        {/* Trust Metrics */}
         <div className="grid grid-cols-2 gap-4">
           <div className="border border-border p-4 rounded-2xl flex flex-col gap-1 text-center">
             <span className="text-[9px] uppercase tracking-wider font-bold text-[#888]">Safety Score</span>
-            <span className="text-lg font-black text-[#2d6a4f] font-heading">{user?.safetyScore.toFixed(0)}%</span>
+            <span className="text-lg font-black text-[#2d6a4f] font-heading">{worker?.safetyScore.toFixed(0) ?? 98}%</span>
             <span className="text-[9px] text-[#555]">Zero safety incidents</span>
           </div>
           <div className="border border-border p-4 rounded-2xl flex flex-col gap-1 text-center">
-            <span className="text-[9px] uppercase tracking-wider font-bold text-[#888]">Reliability Score</span>
-            <span className="text-lg font-black text-[#2d6a4f] font-heading">{user?.reliabilityScore.toFixed(1)}%</span>
+            <span className="text-[9px] uppercase tracking-wider font-bold text-[#888]">Reliability</span>
+            <span className="text-lg font-black text-[#2d6a4f] font-heading">{worker?.reliabilityScore.toFixed(0) ?? 98}%</span>
             <span className="text-[9px] text-[#555]">High task success rate</span>
           </div>
         </div>
 
-        {/* Settings List */}
+        <div className="bg-emerald-50 border border-emerald-100 p-4 rounded-2xl flex items-start gap-3">
+          <CheckCircle2 size={18} className="text-primary shrink-0 mt-0.5" />
+          <div>
+            <h3 className="text-xs font-black text-foreground font-heading">Verification status</h3>
+            <p className="text-[11px] text-muted mt-1 leading-relaxed">
+              {pendingCount > 0
+                ? `${pendingCount} submitted task${pendingCount === 1 ? '' : 's'} waiting for admin approval.`
+                : activeCount > 0
+                  ? `${activeCount} active task${activeCount === 1 ? '' : 's'} in progress.`
+                  : 'No active review blockers. New submissions will appear in Admin Review.'}
+            </p>
+          </div>
+        </div>
+
         <div className="flex flex-col gap-1.5">
           <h3 className="text-xs font-bold uppercase tracking-wider text-muted font-heading mb-1">
             Portal Settings
@@ -109,13 +164,10 @@ export default async function WorkerProfile() {
               <Globe size={16} className="text-primary" />
               <span>Preferred Language</span>
             </div>
-            <span className="text-[10px] text-muted uppercase tracking-wider font-bold">
-              {user?.language === 'es' ? 'Español' : user?.language === 'zh' ? '中文' : 'English'}
-            </span>
+            <span className="text-[10px] text-muted uppercase tracking-wider font-bold">English</span>
           </div>
         </div>
 
-        {/* Support & Account Status */}
         <div className="flex flex-col gap-2 border-t border-[#eae8e2]/60 pt-4 mt-2">
           <Link
             href="/support"
@@ -127,6 +179,10 @@ export default async function WorkerProfile() {
           <div className="flex items-center gap-2 text-xs font-bold text-muted">
             <AlertTriangle size={14} />
             Account status: <span className="text-[#2d6a4f] font-black">Active</span>
+          </div>
+          <div className="flex items-center gap-2 text-xs font-bold text-muted">
+            <Clock size={14} />
+            Review timing: <span className="text-[#2d6a4f] font-black">Usually under 1 hour</span>
           </div>
         </div>
       </div>

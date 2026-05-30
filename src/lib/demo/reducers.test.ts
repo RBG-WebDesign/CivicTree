@@ -37,15 +37,15 @@ describe('reducers', () => {
     expect(s.tasks.find((t) => t.id === 'task-litter-oak')!.status).toBe('submitted');
     const pay = s.payments.find((p) => p.submissionId === sub.id)!;
     expect(pay.status).toBe('pending_review');
-    expect(pay.amount).toBe(18);
+    expect(pay.amount).toBe(28);
   });
   it('approve makes pending payment available and rolls up impact', () => {
     const { s } = fullLoop();
     const sub = s.submissions.find((x) => x.taskId === 'task-litter-oak')!;
     const before = workerBalances(s, W).available;
     const beforeCompleted = s.campaigns.find((c) => c.id === 'campaign-broadway')!.completedGoal;
-    const after = reviewSubmission(s, sub.id, 'approve', { approvedAmount: 18 });
-    expect(workerBalances(after, W).available).toBe(before + 18);
+    const after = reviewSubmission(s, sub.id, 'approve', { approvedAmount: 28 });
+    expect(workerBalances(after, W).available).toBe(before + 28);
     expect(after.tasks.find((t) => t.id === 'task-litter-oak')!.status).toBe('approved');
     expect(after.campaigns.find((c) => c.id === 'campaign-broadway')!.completedGoal).toBe(beforeCompleted + 1);
   });

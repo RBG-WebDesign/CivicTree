@@ -41,7 +41,7 @@ export function filterTasks(tasks: Task[], filter: string) {
     if (filter === 'funding') return t.isFundingNeeded;
     if (t.status !== 'open') return false;
     if (filter === 'quick') return t.estimatedMinutes <= 20;
-    if (filter === 'highest_pay') return t.payoutAmount >= 20;
+    if (filter === 'highest_pay') return t.payoutAmount >= 40;
     if (filter === 'no_tools') return t.requiredTools.length === 0 || t.requiredTools.join().toLowerCase().includes('none');
     if (filter === 'verify') return t.taskType === 'verify';
     return true; // 'all'

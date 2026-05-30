@@ -4,10 +4,12 @@ import type { LatLng } from './types';
 export const DEMO_USER_LOCATION: LatLng = { lat: 34.0452, lng: -118.2502 };
 
 export const STORE_KEY = 'civictree-demo';
-export const STORE_VERSION = 1;
+export const STORE_VERSION = 4;
 
 export const PLACEHOLDER_TASK_IMAGE = '/task_thumbnail.png';
 export const PLACEHOLDER_PROOF_IMAGE = '/volunteers_working.png';
+export const ALLEY_BEFORE_IMAGE = '/demo-alley-before.png';
+export const ALLEY_AFTER_IMAGE = '/demo-alley-after.png';
 
 // Deterministic base time for demo records. Runtime records are stamped at
 // DEMO_EPOCH + (sequence * 1 minute) so timestamps are stable, not wall-clock.

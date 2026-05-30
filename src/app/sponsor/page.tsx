@@ -4,7 +4,7 @@
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import Link from 'next/link';
-import { Image as ImageIcon, MapPin, Sparkles, WalletCards } from 'lucide-react';
+import { BarChart2, Image as ImageIcon, MapPin, Sparkles, WalletCards } from 'lucide-react';
 import { useHydrated } from '@/lib/demo/hooks';
 import { useDemoStore } from '@/lib/demo/store';
 import { campaignProgress } from '@/lib/demo/selectors';
@@ -210,6 +210,13 @@ export default function Sponsor() {
             className="bg-white hover:bg-neutral-50 text-[#333] border-2 border-[#eee] px-8 py-4 rounded-2xl font-extrabold transition-all text-sm w-full sm:w-auto text-center"
           >
             Request a campaign plan
+          </Link>
+          <Link
+            href="/dashboard?view=impact-roi"
+            className="bg-[#edf8f0] hover:bg-[#e1f2e7] text-[#1b4332] border-2 border-[#cfe7d7] px-8 py-4 rounded-2xl font-extrabold transition-all text-sm w-full sm:w-auto text-center inline-flex items-center justify-center gap-2"
+          >
+            <BarChart2 size={16} />
+            View ROI report
           </Link>
         </div>
       </main>

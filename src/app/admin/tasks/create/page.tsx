@@ -5,6 +5,7 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { ShieldCheck, Plus, CheckSquare, Users, DollarSign, ArrowRight, Save, X } from 'lucide-react';
+import CivicTreeLogo from '@/components/CivicTreeLogo';
 import { useDemoStore } from '@/lib/demo/store';
 import { useToast } from '@/components/demo/Toast';
 
@@ -16,7 +17,7 @@ export default function AdminCreateTask() {
   // Form Fields
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
-  const [payoutAmount, setPayoutAmount] = useState('20.00');
+  const [payoutAmount, setPayoutAmount] = useState('28.00');
   const [estimatedMinutes, setEstimatedMinutes] = useState('30');
   const [requiredTools, setRequiredTools] = useState('gloves, bags, grabber, vest');
   const [safetyNotes, setSafetyNotes] = useState('Team recommended. Do not touch needles, human waste, or confront anyone.');
@@ -33,8 +34,8 @@ export default function AdminCreateTask() {
     const parsedPayout = parseFloat(payoutAmount);
     const parsedMinutes = parseInt(estimatedMinutes, 10);
 
-    if (!title.trim() || !description.trim() || isNaN(parsedPayout) || isNaN(parsedMinutes)) {
-      notify('Fill in title, description, payout, and time.', 'error');
+    if (!title.trim() || !description.trim() || isNaN(parsedPayout) || parsedPayout < 10 || isNaN(parsedMinutes)) {
+      notify('Fill in title, description, payout of at least $10, and time.', 'error');
       return;
     }
 
@@ -63,12 +64,9 @@ export default function AdminCreateTask() {
     <div className="flex-1 flex flex-col md:flex-row min-h-screen bg-slate-50">
       {/* Sidebar Navigation */}
       <aside className="w-full md:w-64 bg-primary text-white shrink-0 p-6 flex flex-col gap-8">
-        <div className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded-lg bg-white text-primary flex items-center justify-center font-bold text-lg font-heading">
-            C
-          </div>
-          <span className="text-xl font-bold tracking-tight font-heading">CivicTree Admin</span>
-        </div>
+        <Link href="/dashboard" aria-label="CivicTree command center" className="inline-flex">
+          <CivicTreeLogo size="sm" tone="dark" className="h-9 w-[119px]" />
+        </Link>
 
         <nav className="flex flex-col gap-1.5 text-sm font-medium">
           <Link
@@ -158,7 +156,7 @@ export default function AdminCreateTask() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="flex flex-col gap-1.5">
               <label htmlFor="payout" className="text-[10px] font-bold text-muted uppercase tracking-wider">
-                Payout Amount ($ USD) (Required)
+                Payout Amount ($ USD, $10 minimum)
               </label>
               <input
                 type="number"
@@ -166,7 +164,8 @@ export default function AdminCreateTask() {
                 id="payout"
                 value={payoutAmount}
                 onChange={(e) => setPayoutAmount(e.target.value)}
-                placeholder="20.00"
+                placeholder="28.00"
+                min="10"
                 className="border border-slate-200 p-3 rounded-xl text-xs focus:outline-none focus:ring-1 focus:ring-primary bg-slate-50/50"
                 required
               />

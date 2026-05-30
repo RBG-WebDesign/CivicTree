@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
   ArrowLeft, CheckCircle2, XCircle, ShieldAlert, FileText, Calendar, User,
-  Info, MapPin, Clock, BadgeAlert,
+  Info, MapPin, Clock, BadgeAlert, ClipboardCheck,
 } from 'lucide-react';
 import { useDemoStore } from '@/lib/demo/store';
 import { useHydrated } from '@/lib/demo/hooks';
@@ -221,12 +221,23 @@ export default function SubmissionReviewDetail({ params }: { params: Promise<{ i
 
             {/* AI Notes, Safety & Fraud flags */}
             <div className="flex flex-col gap-3 text-xs border-b border-slate-100 pb-4">
+              <div className="bg-emerald-50 border border-emerald-100 rounded-xl p-3 flex items-center justify-between gap-3">
+                <div className="flex items-center gap-2">
+                  <ClipboardCheck size={16} className="text-primary shrink-0" />
+                  <div>
+                    <span className="block font-bold text-foreground">Layered proof score</span>
+                    <span className="text-[10px] text-muted">Photo, GPS, time, checklist, AI, admin</span>
+                  </div>
+                </div>
+                <span className="text-lg font-black text-primary font-heading">96%</span>
+              </div>
+
               <div className="flex items-start gap-2">
                 <Info size={14} className="text-primary shrink-0 mt-0.5" />
                 <div className="flex flex-col gap-0.5">
                   <span className="font-bold text-foreground">AI Verification</span>
                   <p className="text-[10px] text-muted leading-relaxed">
-                    98% confidence. Sidewalk litter removed. Garbage bags detected at pickup coordinates.
+                    Before and after photos appear to match the same angle. Sidewalk litter is reduced and cleanup materials are detected near the task coordinates.
                   </p>
                 </div>
               </div>
@@ -243,7 +254,7 @@ export default function SubmissionReviewDetail({ params }: { params: Promise<{ i
                 <BadgeAlert size={14} className="text-emerald-800 shrink-0 mt-0.5" />
                 <div className="flex flex-col gap-0.5">
                   <span className="font-bold text-foreground">Fraud Verification</span>
-                  <p className="text-[10px] text-muted">GPS bounds checked. Device fingerprint MATCH.</p>
+                  <p className="text-[10px] text-muted">GPS bounds, timestamp, checklist completion, and repeated-photo risk checked.</p>
                 </div>
               </div>
             </div>
@@ -264,6 +275,10 @@ export default function SubmissionReviewDetail({ params }: { params: Promise<{ i
               <div className="flex gap-1.5 items-start">
                 <span className="text-[#2d6a4f]">&bull;</span>
                 <span>Does the after photo show the requested work?</span>
+              </div>
+              <div className="flex gap-1.5 items-start">
+                <span className="text-[#2d6a4f]">&bull;</span>
+                <span>Do the before and after photos use a comparable angle?</span>
               </div>
               <div className="flex gap-1.5 items-start">
                 <span className="text-[#2d6a4f]">&bull;</span>
