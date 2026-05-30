@@ -1,36 +1,68 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# CivicTree Demo MVP
 
-## Getting Started
+CivicTree is a polished demo MVP for a civic task marketplace. It shows the full loop from finding neighborhood work to claiming a task, checking in, submitting proof, admin approval, worker earnings, and sponsor/city impact.
 
-First, run the development server:
+The demo is intentionally database-free. State is seeded deterministically, persisted in `localStorage` with a versioned Zustand store, and can be restored with the development bar's `Reset demo` control.
+
+## Setup
 
 ```bash
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open `http://localhost:3000`.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+No environment variables, database, SMS provider, payment provider, object storage, or map service are required for the demo flow.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Verification
 
-## Learn More
+```bash
+npm run test
+npm run build
+npm run test:e2e
+```
 
-To learn more about Next.js, take a look at the following resources:
+`npm run test:e2e` runs the full Playwright story against a production build on `127.0.0.1:3100`.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Demo Personas
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+Use the development bar on app routes to switch personas:
 
-## Deploy on Vercel
+- `Worker (Austin)`: completed onboarding, open tasks, seeded earnings.
+- `Admin`: reviews submitted proof, approves or rejects payouts, creates tasks.
+- `Sponsor`: views campaign and outcome surfaces.
+- Seed data also includes `Maya` as a new worker and `Jordan` as a worker profile used by the map UI.
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## Key Routes
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- `/`: pitch welcome, walkthrough, and demo home.
+- `/worker/map`: functional task map with filters, distance labels, status-aware pins, and claim entry.
+- `/worker/task/[id]`: task detail with claim gating for unavailable or funding-needed work.
+- `/worker/task/[id]/claim`: safety checklist before claiming.
+- `/worker/task/[id]/active`: check-in, sample proof photos, and submission.
+- `/worker/today`: worker home state based on onboarding, active claims, pending reviews, and campaign progress.
+- `/worker/earn`: balances, pending review rows, payout history, and demo cash out.
+- `/worker/report`: local report submission.
+- `/admin/submissions`: proof review queue.
+- `/admin/tasks/create`: store-backed task creation.
+- `/dashboard`: store-backed command center.
+- `/sponsor`: campaign funding pool, percent complete, payout totals, and proof thumbnails.
+- `/for-cities`: neighborhood impact rollup.
+
+## Demo State
+
+The demo store lives in `src/lib/demo`. Pure seed, selector, and reducer logic is covered by Vitest. The store persists entity state under a versioned `localStorage` key and drops old persisted state on version changes.
+
+Proof images are stored as base64 data URLs or seeded local image URLs so the loop survives refresh without object storage.
+
+## Production Path
+
+The repo still includes dormant Prisma and API code as a starting point for production:
+
+- Replace the Zustand-only store with Postgres and Prisma-backed persistence.
+- Replace base64 proof with object storage and signed URLs.
+- Replace demo persona switching with real auth and sessions.
+- Replace dormant SMS routes with a real OTP provider such as Twilio.
+- Replace demo cash out with Stripe Connect or another payout rail.
+- Replace the CSS map with real geocoding, map tiles, and location permissions.
