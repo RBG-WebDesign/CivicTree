@@ -227,15 +227,6 @@ export default function Home() {
                 </div>
               </div>
             </div>
-            <div className="absolute -bottom-7 left-5 flex items-center gap-3 rounded-lg border border-[#dfe7dc] bg-white p-4 shadow-[0_20px_55px_rgba(19,48,36,0.16)] md:-left-6">
-              <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-[#e4f3e8] text-[#1b4332]">
-                <ShieldCheck size={24} />
-              </div>
-              <div>
-                <div className="text-sm font-black text-[#10281d]">Task verified</div>
-                <div className="mt-1 text-xs font-semibold text-[#66756a]">Tree care submitted near Madison Ave</div>
-              </div>
-            </div>
           </div>
         </div>
       </section>

@@ -3,7 +3,7 @@
 
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { Shield, User as UserIcon, Layers, MapPin, Building2 } from 'lucide-react';
+import { Shield, User as UserIcon, Layers, MapPin, Building2, Home } from 'lucide-react';
 import { useDemoStore } from '@/lib/demo/store';
 import { useHydrated } from '@/lib/demo/hooks';
 import type { Role } from '@/lib/demo/types';
@@ -44,6 +44,10 @@ export default function RoleSwitcher() {
       </div>
 
       <div className="flex items-center gap-3">
+        <Link href="/" className="flex items-center gap-1 text-emerald-300 hover:text-white transition-colors font-semibold">
+          <Home size={12} />
+          Main menu
+        </Link>
         <Link href="/dashboard" className="flex items-center gap-1 text-emerald-300 hover:text-white transition-colors font-semibold">
           <Layers size={12} />
           Command Center

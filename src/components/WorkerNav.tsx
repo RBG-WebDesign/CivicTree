@@ -3,12 +3,13 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Shield, Map, AlertCircle, DollarSign, User } from 'lucide-react';
+import { Shield, Map, AlertCircle, DollarSign, User, Home } from 'lucide-react';
 
 export default function WorkerNav() {
   const pathname = usePathname();
 
   const navItems = [
+    { name: 'Menu', path: '/', icon: Home },
     { name: 'Today', path: '/worker/today', icon: Shield },
     { name: 'Map', path: '/worker/map', icon: Map },
     { name: 'Report', path: '/worker/report', icon: AlertCircle },

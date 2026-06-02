@@ -16,6 +16,7 @@ import {
   Calendar,
   ChevronDown,
   Clock3,
+  Home,
   List,
   LocateFixed,
   Lock,
@@ -153,6 +154,7 @@ function DesktopHeader({
         </Link>
 
         <nav className="hidden items-center gap-10 text-sm font-black text-[#101814] lg:flex">
+          <Link href="/" className="hover:text-[#067333]">Main menu</Link>
           <Link href="/how-it-works" className="hover:text-[#067333]">How it works</Link>
           <Link href="/earn" className="hover:text-[#067333]">Earn</Link>
           <Link href="/for-cities" className="hover:text-[#067333]">For Cities</Link>
@@ -160,6 +162,13 @@ function DesktopHeader({
         </nav>
 
         <div className="flex items-center gap-3">
+          <Link
+            href="/"
+            className="hidden h-11 items-center gap-2 rounded-xl border border-[#e2e5de] bg-white px-4 text-xs font-black text-[#197243] shadow-sm transition hover:bg-[#f7f8f4] md:inline-flex lg:hidden"
+          >
+            <Home size={15} />
+            Main menu
+          </Link>
           <div className="hidden rounded-2xl border border-[#e2e5de] bg-[#f7f8f4] p-1 md:flex">
             <button
               type="button"

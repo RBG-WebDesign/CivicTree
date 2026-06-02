@@ -405,6 +405,10 @@ function DashboardContent() {
             <CivicTreeLogo size="sm" tone="dark" className="h-8 w-[106px]" />
           </Link>
           <p className="text-[10px] font-semibold tracking-wider uppercase" style={{ color: '#4a6278' }}>Command Center</p>
+          <Link href="/" className="mt-4 flex items-center gap-2 rounded-lg px-3 py-2 text-xs font-bold transition-all hover:bg-white/5" style={{ color: '#7d8fa1', border: '1px solid rgba(255,255,255,0.08)' }}>
+            <Home size={13} />
+            Main menu
+          </Link>
         </div>
 
         {/* Nav */}
@@ -471,6 +475,10 @@ function DashboardContent() {
             </div>
           ))}
           <div className="ml-auto flex gap-2">
+            <Link href="/" className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold border transition-all hover:bg-white/5" style={{ borderColor: 'rgba(255,255,255,0.12)', color: '#7d8fa1' }}>
+              <Home size={12} />
+              Main menu
+            </Link>
             <Link href="/worker/today" className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold border transition-all hover:bg-white/5" style={{ borderColor: 'rgba(255,255,255,0.12)', color: '#7d8fa1' }}>
               <MapPin size={12} />
               Worker App
