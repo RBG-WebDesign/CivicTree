@@ -206,8 +206,8 @@ export default function Home() {
             <div className="relative rotate-1 overflow-hidden rounded-[1.5rem] border border-white bg-white shadow-[0_34px_90px_rgba(27,67,50,0.16)] transition duration-500 hover:rotate-0">
               <div className="relative h-[360px] md:h-[520px]">
                 <Image
-                  src="/volunteers_working.png"
-                  alt="CivicTree neighbors improving a block together"
+                  src="/civictree-hero-neighborhood-care.png"
+                  alt="Neighbors cleaning graffiti, sweeping sidewalks, collecting trash, and planting around a street tree"
                   fill
                   className="object-cover"
                   sizes="(min-width: 1024px) 720px, 100vw"
