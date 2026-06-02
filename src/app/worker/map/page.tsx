@@ -524,7 +524,7 @@ function DesktopTaskDetail({ task, index }: { task: Task; index: number }) {
             <Bookmark size={20} />
             Save task
           </button>
-          <Link href={`/worker/task/${task.id}`} className="inline-flex h-14 items-center justify-center gap-3 rounded-xl bg-[#197243] text-sm font-black text-white shadow-[0_14px_28px_rgba(25,114,67,0.2)]">
+          <Link href={`/worker/task/${task.id}/claim?handoff=desktop`} className="inline-flex h-14 items-center justify-center gap-3 rounded-xl bg-[#197243] text-sm font-black text-white shadow-[0_14px_28px_rgba(25,114,67,0.2)]">
             <Lock size={18} />
             Claim this task
           </Link>

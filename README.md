@@ -36,7 +36,8 @@ Use the development bar on app routes to switch personas:
 
 ## Key Routes
 
-- `/`: pitch welcome, walkthrough, and demo home.
+- `/`: scrollable marketing homepage for workers, sponsors, and city partners.
+- `/pitch`: pitch welcome, walkthrough, and demo home.
 - `/worker/map`: functional task map with filters, distance labels, status-aware pins, and claim entry.
 - `/worker/task/[id]`: task detail with claim gating for unavailable or funding-needed work.
 - `/worker/task/[id]/claim`: safety checklist before claiming.

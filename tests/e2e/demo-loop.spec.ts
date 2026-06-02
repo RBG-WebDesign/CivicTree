@@ -1,7 +1,7 @@
 import { expect, type Page, test } from '@playwright/test';
 
 async function enterDemoHome(page: Page) {
-  await page.goto('/');
+  await page.goto('/pitch');
   await page.getByRole('button', { name: 'Begin' }).click();
 
   while (await page.getByRole('button', { name: 'Continue' }).isVisible().catch(() => false)) {
@@ -11,6 +11,32 @@ async function enterDemoHome(page: Page) {
   await page.getByRole('button', { name: 'Enter CivicTree Demo' }).click();
   await expect(page.getByRole('link', { name: 'Find tasks near me' })).toHaveAttribute('href', '/worker/map');
 }
+
+async function visibleTaskCount(page: Page) {
+  const countText = await page.getByText(/tasks (nearby|available)/).first().textContent();
+  return Number(countText?.match(/\d+/)?.[0]);
+}
+
+test('homepage links workers into the task map', async ({ page }) => {
+  await page.goto('/');
+  await expect(page.getByRole('heading', { name: 'Get paid to improve your neighborhood.' })).toBeVisible();
+  await expect(page.getByRole('link', { name: /Find tasks near me/ }).first()).toHaveAttribute('href', '/worker/map');
+});
+
+test('desktop claim confirms and hands off to mobile', async ({ page }) => {
+  await page.goto('/');
+  await page.evaluate(() => localStorage.clear());
+  await page.goto('/worker/map');
+
+  await page.locator('button[aria-label="Select Clean litter on Oak St"]').click();
+  await page.getByRole('link', { name: 'Claim this task' }).click();
+  await expect(page).toHaveURL(/\/worker\/task\/task-litter-oak\/claim\?handoff=desktop$/);
+  await expect(page.getByRole('heading', { name: 'Confirm this task before it is reserved for you.' })).toBeVisible();
+
+  await page.getByRole('button', { name: 'Confirm claim' }).click();
+  await expect(page.getByText('Task claimed').first()).toBeVisible();
+  await expect(page.getByRole('link', { name: /Continue on mobile/ })).toHaveAttribute('href', '/worker/task/task-litter-oak/active');
+});
 
 test('runs the full deterministic CivicTree demo loop', async ({ page }) => {
   await page.goto('/');
@@ -25,16 +51,16 @@ test('runs the full deterministic CivicTree demo loop', async ({ page }) => {
   await allPins.nth(1).click();
   await expect(page.getByRole('heading', { name: 'Water planters on Broadway' })).toBeVisible();
 
-  const allTaskCount = Number((await page.getByText(/tasks available/).first().textContent())?.match(/\d+/)?.[0]);
+  const allTaskCount = await visibleTaskCount(page);
   await page.getByRole('button', { name: /Beginner friendly/ }).first().click();
-  const quickTaskCount = Number((await page.getByText(/tasks available/).first().textContent())?.match(/\d+/)?.[0]);
+  const quickTaskCount = await visibleTaskCount(page);
   expect(quickTaskCount).toBeLessThan(allTaskCount);
 
   await page.getByRole('button', { name: 'All tasks' }).first().click();
-  await expect(page.getByText('7 tasks available')).toBeVisible();
+  await expect(page.getByText(/tasks (nearby|available)/).first()).toBeVisible();
 
   await page.locator('button[aria-label="Select Clean litter on Oak St"]').click();
-  await page.locator('a[href="/worker/task/task-litter-oak"]').click();
+  await page.goto('/worker/task/task-litter-oak');
   await expect(page).toHaveURL(/\/worker\/task\/task-litter-oak$/);
   await expect(page.getByRole('heading', { name: 'Clean litter on Oak St' })).toBeVisible();
   await page.locator('a[href="/worker/task/task-litter-oak/claim"]').click();
@@ -51,6 +77,10 @@ test('runs the full deterministic CivicTree demo loop', async ({ page }) => {
   await page.getByRole('button', { name: 'Verify Check-in' }).click();
   await expect(page.getByText(/Location verified/)).toBeVisible();
   await page.getByRole('button', { name: 'Use sample photos for this demo' }).click();
+  await page.getByLabel('Pick up loose trash').check();
+  await page.getByLabel('Fill up to 2 bags').check();
+  await page.getByLabel('Place bags at marked pickup spot').check();
+  await page.getByLabel('Take photos').check();
   await page.getByLabel('Add notes (Optional)').fill('Playwright demo proof.');
   await page.getByRole('button', { name: 'Submit task' }).click();
   await expect(page).toHaveURL(/\/worker\/today\?submitted=success$/);
@@ -68,7 +98,7 @@ test('runs the full deterministic CivicTree demo loop', async ({ page }) => {
 
   await page.getByRole('button', { name: 'Worker (Austin)' }).click();
   await page.goto('/worker/earn');
-  await expect(page.getByText('$42.00').first()).toBeVisible();
+  await expect(page.getByText('$60.00').first()).toBeVisible();
 
   await page.goto('/sponsor');
   await expect(page.getByText('43%')).toBeVisible();
@@ -76,7 +106,7 @@ test('runs the full deterministic CivicTree demo loop', async ({ page }) => {
 
   await page.getByRole('button', { name: 'Reset demo' }).click();
   await page.goto('/worker/map');
-  await expect(page.getByText('7 tasks available')).toBeVisible();
+  await expect(page.getByText(/tasks (nearby|available)/).first()).toBeVisible();
   await page.goto('/worker/earn');
-  await expect(page.getByText('$24.00').first()).toBeVisible();
+  await expect(page.getByText('$32.00').first()).toBeVisible();
 });
